@@ -1,1 +1,4 @@
 # diecasting-project
+
+### Project setup
+```
