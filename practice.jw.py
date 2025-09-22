@@ -3,3 +3,4 @@ import numpy as np
 
 df = pd.read_csv('./data/train.csv')
 df.info()
+df.columns
