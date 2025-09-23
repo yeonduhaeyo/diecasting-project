@@ -6,3 +6,5 @@ df.info()
 df.columns
 
 # 지원언니 수정
+
+df.columns

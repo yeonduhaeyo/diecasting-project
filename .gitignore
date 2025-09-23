@@ -1,0 +1,65 @@
+# ------------------------------
+# OS / 편집기
+# ------------------------------
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ------------------------------
+# Python / Jupyter
+# ------------------------------
+__pycache__/
+*.py[cod]
+*.ipynb_checkpoints/
+.env
+.venv/
+venv/
+pip-wheel-metadata/
+*.egg-info/
+dist/
+build/
+
+# ------------------------------
+# 데이터 (원본/중간/학습셋은 Git에 올리지 않기)
+# ------------------------------
+data/
+
+# ------------------------------
+# 모델/실험/리포트 산출물
+# ------------------------------
+models/saved/
+models/experiments/
+experiments/
+reports/figures/
+reports/tables/
+*.pkl
+*.joblib
+*.onnx
+*.parquet
+*.feather
+!reports/.gitkeep
+
+# ------------------------------
+# 캐시/로그
+# ------------------------------
+logs/
+*.log
+.cache/
+mlruns/            # (MLflow 사용 시)
+wandb/             # (Weights & Biases 사용 시)
+
+# ------------------------------
+# Shiny for Python / 배포 산출물
+# ------------------------------
+www/
+static/
+rsconnect-python/
+*.html
+*.css.map
+
+# ------------------------------
+# 노트북 임시 파일
+# ------------------------------
+*.sav
+~$*.*

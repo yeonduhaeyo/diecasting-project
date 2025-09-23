@@ -53,3 +53,5 @@ for col in df_cat:
         
 
 df_cat
+
+len(df.columns)
