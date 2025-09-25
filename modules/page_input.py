@@ -1,7 +1,7 @@
 # modules/page_input.py
 from shiny import ui
 
-def slider_page_ui():
+def page_input_ui():
     return ui.page_fluid(
         ui.h3("주조 공정 변수 입력"),
         ui.row(
