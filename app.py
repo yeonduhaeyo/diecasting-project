@@ -23,8 +23,8 @@ app_ui = ui.page_navbar(
 def server(input, output, session):
     page_input.page_input_server(input, output, session)
     page_process.page_process_server(input, output, session)
-    page_preprocess.page_preprocess_server(input, output, session)
     page_eda.page_eda_server(input, output, session)
-    page_result.page_result_server(input, output, session)
+    page_preprocess.page_preprocess_server(input, output, session)
+    # page_result.page_result_server(input, output, session)
 
 app = App(app_ui, server, static_assets=www_dir)

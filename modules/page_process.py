@@ -48,9 +48,12 @@ def page_process_ui():
                     ui.card(
                         ui.h4("관리 기준"),
                         ui.tags.table(
-                            ui.tags.tr(ui.tags.th("변수"), ui.tags.th("하한"), ui.tags.th("상한"), ui.tags.th("관리 포인트")),
-                            ui.tags.tr(ui.tags.td("용탕 온도 (molten_temp)"), ui.tags.td("600℃"), ui.tags.td("750℃"), ui.tags.td("온도가 낮으면 미충전 위험")),
-                            ui.tags.tr(ui.tags.td("용탕 부피 (molten_volume)"), ui.tags.td("50ml"), ui.tags.td("500ml"), ui.tags.td("과소 주입 방지")),
+                            ui.tags.tr(ui.tags.th("변수"), ui.tags.th("정상 범위 (Cut-off)")),
+                            ui.tags.tr(ui.tags.td("용탕 온도 (molten_temp)"), ui.tags.td("-")),
+                            ui.tags.tr(ui.tags.td("용탕 부피 (molten_volume)"), ui.tags.td("-")),
+                            # ui.tags.tr(ui.tags.th("변수"), ui.tags.th("하한"), ui.tags.th("상한"), ui.tags.th("관리 포인트")),
+                            # ui.tags.tr(ui.tags.td("용탕 온도 (molten_temp)"), ui.tags.td("600℃"), ui.tags.td("750℃"), ui.tags.td("온도가 낮으면 미충전 위험")),
+                            # ui.tags.tr(ui.tags.td("용탕 부피 (molten_volume)"), ui.tags.td("50ml"), ui.tags.td("500ml"), ui.tags.td("과소 주입 방지")),
                         )
                     ),
                     ui.card(
@@ -74,7 +77,17 @@ def page_process_ui():
                     ui.card(
                         ui.h4("공정 설명"),
                         ui.markdown("슬리브에 용탕 주입 후 냉각 + EMS 교반으로 반고체 슬러리를 제조"),
-                        ui.output_plot("plot_slurry")
+                    ),
+                    ui.card(
+                        ui.h4("관리 기준"),
+                        ui.tags.table(
+                            ui.tags.tr(ui.tags.th("변수"), ui.tags.th("정상 범위 (Cut-off)")),
+                            ui.tags.tr(ui.tags.td("슬리브 온도 (sleeve_temperature)"), ui.tags.td("-")),
+                            ui.tags.tr(ui.tags.td("EMS 가동 시간 (EMS_operation_time)"), ui.tags.td("-")),
+                        )
+                    ),
+                    ui.card(
+                        ui.h4("실제 데이터 기반 예시 그래프"),
                     )
                 )
             ),
@@ -96,7 +109,21 @@ def page_process_ui():
                     ui.card(
                         ui.h4("공정 설명"),
                         ui.markdown("피스톤이 반고체 금속을 밀어내며 금형 충전"),
-                        ui.output_plot("plot_injection")
+                    ),
+                    ui.card(
+                        ui.h4("관리 기준"),
+                        ui.tags.table(
+                            ui.tags.tr(ui.tags.th("변수"), ui.tags.th("정상 범위 (Cut-off)")),
+                            ui.tags.tr(ui.tags.td("저속 구간 속도 (low_section_speed)"), ui.tags.td("-")),
+                            ui.tags.tr(ui.tags.td("고속 구간 속도 (high_section_speed)"), ui.tags.td("-")),
+                            ui.tags.tr(ui.tags.td("주입 압력 (cast_pressure)"), ui.tags.td("-")),
+                            ui.tags.tr(ui.tags.td("비스킷 두께 (biscuit_thickness)"), ui.tags.td("-")),
+                            ui.tags.tr(ui.tags.td("형체력 (physical_strength)"), ui.tags.td("-"))
+                        )
+                    ),
+                    ui.card(
+                        ui.h4("실제 데이터 기반 예시 그래프"),
+                        # ui.output_plot("plot_molten_quality")
                     )
                 )
             ),
@@ -108,15 +135,31 @@ def page_process_ui():
                     ui.sidebar(
                         ui.h4("관련 변수"),
                         ui.tags.ul(
-                            ui.tags.li("상금형 온도 (upper_mold_temp1~3)"),
-                            ui.tags.li("하금형 온도 (lower_mold_temp1~3)"),
+                            ui.tags.li("상금형 온도1 (upper_mold_temp1)"),
+                            ui.tags.li("하금형 온도1 (lower_mold_temp1)"),
+                            ui.tags.li("상금형 온도2 (upper_mold_temp2)"),
+                            ui.tags.li("하금형 온도2 (lower_mold_temp2)"),
                             ui.tags.li("냉각수 온도 (Coolant_temperature)"),
                         )
                     ),
                     ui.card(
                         ui.h4("공정 설명"),
                         ui.markdown("냉각/응고되며 최종 형상이 완성"),
-                        ui.output_plot("plot_mold")
+                    ),
+                    ui.card(
+                        ui.h4("관리 기준"),
+                        ui.tags.table(
+                            ui.tags.tr(ui.tags.th("변수"), ui.tags.th("정상 범위 (Cut-off)")),
+                            ui.tags.tr(ui.tags.td("상금형 온도1 (upper_mold_temp1)"), ui.tags.td("-")),
+                            ui.tags.tr(ui.tags.td("하금형 온도1 (lower_mold_temp1)"), ui.tags.td("-")),
+                            ui.tags.tr(ui.tags.td("상금형 온도2 (upper_mold_temp2)"), ui.tags.td("-")),
+                            ui.tags.tr(ui.tags.td("하금형 온도2 (lower_mold_temp2)"), ui.tags.td("-")),
+                            ui.tags.tr(ui.tags.td("냉각수 온도 (Coolant_temperature)"), ui.tags.td("-"))
+                        )
+                    ),
+                    ui.card(
+                        ui.h4("실제 데이터 기반 예시 그래프"),
+                        # ui.output_plot("plot_molten_quality")
                     )
                 )
             ),
@@ -134,7 +177,7 @@ def page_process_ui():
                     ui.card(
                         ui.h4("공정 설명"),
                         ui.markdown("모든 변수를 종합해 최종 양품/불량품 (0=양품, 1=불량품) 판정"),
-                        ui.output_text_verbatim("text_quality")
+                        # ui.output_text_verbatim("text_quality")
                     )
                 )
             ),
