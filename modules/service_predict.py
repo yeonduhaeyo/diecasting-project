@@ -1,8 +1,6 @@
 # service_predict.py
 import pandas as pd
 from shiny import reactive
-from shared import models, explainers
-
 
 # ======================
 # 상태 저장 (shap 결과/입력데이터)
@@ -68,8 +66,8 @@ def do_predict(input, shap_values_state, X_input_state, models, explainers):
 
     # ✅ 2) 전처리 후 데이터 변환
     try:
-        X_transformed = model.named_steps["preprocessor"].transform(X)
-        feature_names = model.named_steps["preprocessor"].get_feature_names_out()
+        X_transformed = model.named_steps["preprocess"].transform(X)
+        feature_names = model.named_steps["preprocess"].get_feature_names_out()
         X_transformed_df = pd.DataFrame(X_transformed, columns=feature_names)
     except Exception as e:
         print(f"[ERROR] Preprocessing failed: {e}")

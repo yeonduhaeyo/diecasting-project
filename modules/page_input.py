@@ -3,7 +3,10 @@ from shiny import ui, render, reactive
 import pandas as pd
 from typing import Dict, Any
 
-from shared import models, explainers, feature_name_map
+from shared import (
+    feature_name_map,
+    rf_models, rf_explainers  # ✅ RandomForest 모델/설명자
+)
 from viz.shap_plots import register_shap_plots
 from modules.service_predict import do_predict
 from modules.service_warnings import shap_based_warning
@@ -134,23 +137,25 @@ def inputs_layout(schema: Dict[str, Any]):
 # Server
 # ======================
 def page_input_server(input, output, session):
-    # SHAP + Permutation Importance 등록
+    # -------- SHAP + Permutation Importance 등록 --------
     register_shap_plots(
         output,
         shap_values_state,
         X_input_state,
         y_test_state,
-        models,
-        explainers,
+        rf_models,
+        rf_explainers,
         input
     )
 
     # -------- 결과 카드 --------
     @output
     @render.ui
-    @reactive.event(input.btn_predict)   # ✅ 버튼 눌렀을 때만 실행
     def pred_result_card():
-        result = do_predict(input, shap_values_state, X_input_state, models, explainers)
+        if input.btn_predict() == 0:   # 버튼 안 눌렀을 때 안내
+            return ui.div("실행 버튼을 눌러주세요", class_="p-3 text-center")
+
+        result = do_predict(input, shap_values_state, X_input_state, rf_models, rf_explainers)
         if result == -1:
             return ui.div("해당 mold_code에 대한 모델이 없습니다.",
                           class_="p-3 text-center text-white",
@@ -164,9 +169,9 @@ def page_input_server(input, output, session):
 
     @output
     @render.text
-    @reactive.event(input.btn_predict)
+    @reactive.event(input.btn_predict)   # 버튼 눌렀을 때만 동작
     def pred_summary():
-        return f"예측 결과: {do_predict(input, shap_values_state, X_input_state, models, explainers)}"
+        return f"예측 결과: {do_predict(input, shap_values_state, X_input_state, rf_models, rf_explainers)}"
 
     # -------- 공정별 경고 UI --------
     @output

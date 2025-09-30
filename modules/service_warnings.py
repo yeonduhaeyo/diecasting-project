@@ -1,4 +1,3 @@
-# service_warnings.py
 from shiny import ui
 from shared import feature_name_map
 
@@ -15,13 +14,14 @@ def shap_based_warning(process: str, shap_values_state, X_input_state, feature_n
             style="background-color:#6c757d; border-radius:6px; font-weight:600;"
         )
 
-    # ✅ SHAP 기여도 추출 (버전별 대응)
-    if hasattr(shap_values, "values"):  # 최신 shap.Explanation
-        contrib = dict(zip(X.columns, shap_values.values[0]))
-    elif isinstance(shap_values, (list, tuple)):  # 구 shap 버전 (list/np.array 리턴)
+    # ✅ SHAP 기여도 추출 (binary classification 대응)
+    if hasattr(shap_values, "values"):
+        vals = shap_values.values[0]
+        if vals.ndim == 2 and vals.shape[1] == 2:   # (n_features, 2)
+            vals = vals[:, 1]   # ✅ 불량(클래스 1) 기준 선택
+        contrib = dict(zip(X.columns, vals))
+    elif isinstance(shap_values, (list, tuple)):
         contrib = dict(zip(X.columns, shap_values[0]))
-    elif hasattr(shap_values, "base_values"):  # 일부 shap 구버전 객체
-        contrib = dict(zip(X.columns, shap_values.data[0]))
     else:
         return ui.card_body(
             ui.p("⚠️ SHAP 형식 오류"),

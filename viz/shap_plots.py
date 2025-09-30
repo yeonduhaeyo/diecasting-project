@@ -18,21 +18,36 @@ def register_shap_plots(output, shap_values_state, X_input_state, y_test_state, 
         shap_values = shap_values_state.get()
         X = X_input_state.get()
         if shap_values is None or X is None:
-            return plt.figure()
+            fig, ax = plt.subplots()
+            ax.text(0.5, 0.5, "⚠️ SHAP 값 없음", ha="center", va="center", fontsize=12)
+            ax.axis("off")
+            return fig
 
         explainer = explainers.get(input.mold_code())
         if explainer is None:
-            return plt.figure()
+            fig, ax = plt.subplots()
+            ax.text(0.5, 0.5, "⚠️ Explainer 없음", ha="center", va="center", fontsize=12)
+            ax.axis("off")
+            return fig
 
-        shap.initjs()
-        shap.force_plot(
-            base_value=explainer.expected_value,
-            shap_values=shap_values.values[0],
-            features=X.iloc[0, :],
-            matplotlib=True,
-            show=False
+        # ✅ expected_value 정리 (배열일 경우 첫 원소만 사용)
+        base_value = explainer.expected_value
+        if isinstance(base_value, (list, tuple)) or hasattr(base_value, "__len__"):
+            base_value = base_value[0]
+
+        # ✅ shap values → 클래스 1 기준 추출
+        shap_vals = shap_values.values[0]
+        if shap_vals.ndim == 2 and shap_vals.shape[1] == 2:
+            shap_vals = shap_vals[:, 1]
+
+        # ✅ 최신 shap API 사용
+        plt.figure()
+        shap.plots.force(
+            base_value,
+            shap_vals,
+            X.iloc[0, :]
         )
-        plt.rcParams.update({"font.size": 8})
+        plt.tight_layout()
         return plt.gcf()
 
     # -----------------------
@@ -46,7 +61,11 @@ def register_shap_plots(output, shap_values_state, X_input_state, y_test_state, 
         if shap_values is None or X is None:
             return plt.figure()
 
-        shap.summary_plot(shap_values.values, X, show=False)
+        shap.summary_plot(
+            shap_values.values[:, :, 1] if shap_values.values.ndim == 3 else shap_values.values,
+            X,
+            show=False
+        )
         return plt.gcf()
 
     # -----------------------
