@@ -15,7 +15,6 @@ def do_predict(input, shap_values_state, X_input_state, models, explainers):
     - 입력값 수집 → 모델 예측 → SHAP 계산 → 상태 저장
     """
 
-    # ✅ 입력값 수집
     features = {
         # 용탕 준비 및 가열
         "molten_temp": input.molten_temp(),
@@ -60,10 +59,10 @@ def do_predict(input, shap_values_state, X_input_state, models, explainers):
     # ✅ 1) 예측
     try:
         pred = model.predict(X)[0]
+        proba = model.predict_proba(X)[0][1]  # 불량(클래스=1) 확률
     except Exception as e:
         print(f"[ERROR] Prediction failed: {e}")
-        return -1
-
+        return -1, None
     # ✅ 2) 전처리 후 데이터 변환
     try:
         X_transformed = model.named_steps["preprocess"].transform(X)
@@ -71,7 +70,7 @@ def do_predict(input, shap_values_state, X_input_state, models, explainers):
         X_transformed_df = pd.DataFrame(X_transformed, columns=feature_names)
     except Exception as e:
         print(f"[ERROR] Preprocessing failed: {e}")
-        return pred   # 예측은 됐으니 결과만 반환
+        return pred, proba   # 예측은 됐으니 결과만 반환
 
     # ✅ 3) SHAP 계산
     try:
@@ -85,4 +84,4 @@ def do_predict(input, shap_values_state, X_input_state, models, explainers):
     shap_values_state.set(shap_values)
     X_input_state.set(X_transformed_df)
 
-    return pred
+    return pred, proba

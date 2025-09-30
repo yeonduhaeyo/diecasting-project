@@ -92,3 +92,27 @@ feature_name_map = {
     "cat__tryshot_signal_A": "tryshot_signal=A",
     "cat__tryshot_signal_D": "tryshot_signal=D",
 }
+
+feature_name_map_kor = {
+    "num__molten_temp": "용탕 온도(℃)",
+    "num__molten_volume": "용탕 부피",
+    "num__sleeve_temperature": "슬리브 온도(℃)",
+    "num__EMS_operation_time": "EMS 작동시간(s)",
+    "num__cast_pressure": "주조 압력(bar)",
+    "num__biscuit_thickness": "비스킷 두께(mm)",
+    "num__low_section_speed": "저속 구간 속도",
+    "num__high_section_speed": "고속 구간 속도",
+    "num__physical_strength": "형체력",
+    "num__upper_mold_temp1": "상형 온도1(℃)",
+    "num__upper_mold_temp2": "상형 온도2(℃)",
+    "num__lower_mold_temp1": "하형 온도1(℃)",
+    "num__lower_mold_temp2": "하형 온도2(℃)",
+    "num__coolant_temp": "냉각수 온도(℃)",   # ✅ Coolant_temperature → 소문자 통일
+    "num__facility_operation_cycleTime": "설비 가동 사이클타임",
+    "num__production_cycletime": "생산 사이클타임",
+    "num__count": "생산 횟수",
+    "cat__working_가동": "작업 여부=가동",
+    "cat__working_정지": "작업 여부=정지",
+    "cat__tryshot_signal_A": "트라이샷 신호=A",
+    "cat__tryshot_signal_D": "트라이샷 신호=D",
+}
