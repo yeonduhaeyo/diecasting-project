@@ -1,7 +1,9 @@
+# viz/shap_plots.py
 import shap
 import matplotlib.pyplot as plt
 from sklearn.inspection import permutation_importance
 from shiny import render, reactive
+
 
 def register_shap_plots(output, shap_values_state, X_input_state, y_test_state, models, explainers, input):
     """
@@ -17,12 +19,14 @@ def register_shap_plots(output, shap_values_state, X_input_state, y_test_state, 
     def shap_force_plot():
         shap_values = shap_values_state.get()
         X = X_input_state.get()
+
         if shap_values is None or X is None:
             fig, ax = plt.subplots()
             ax.text(0.5, 0.5, "⚠️ SHAP 값 없음", ha="center", va="center", fontsize=12)
             ax.axis("off")
             return fig
 
+        # explainer 확인
         explainer = explainers.get(input.mold_code())
         if explainer is None:
             fig, ax = plt.subplots()
@@ -30,23 +34,29 @@ def register_shap_plots(output, shap_values_state, X_input_state, y_test_state, 
             ax.axis("off")
             return fig
 
-        # ✅ expected_value 정리 (배열일 경우 첫 원소만 사용)
+        # base_value 정리
         base_value = explainer.expected_value
-        if isinstance(base_value, (list, tuple)) or hasattr(base_value, "__len__"):
-            base_value = base_value[0]
+        if hasattr(base_value, "__len__"):  # (2,) 형태일 수 있음
+            base_value = base_value[1]  # ✅ 클래스 1 (FAIL) 기준
 
-        # ✅ shap values → 클래스 1 기준 추출
-        shap_vals = shap_values.values[0]
-        if shap_vals.ndim == 2 and shap_vals.shape[1] == 2:
-            shap_vals = shap_vals[:, 1]
+        # shap values → (n_features,) 형태로 정리
+        if hasattr(shap_values, "values"):
+            vals = shap_values.values[0]
+            if vals.ndim == 2 and vals.shape[1] == 2:  # (n_features, 2)
+                vals = vals[:, 1]  # ✅ 클래스 1
+        else:
+            vals = shap_values[0]
 
-        # ✅ 최신 shap API 사용
+        # Force plot (matplotlib 모드)
         plt.figure()
         shap.plots.force(
             base_value,
-            shap_vals,
-            X.iloc[0, :]
+            vals,
+            X.iloc[0, :],
+            matplotlib=True,
+            show=False
         )
+        plt.title("SHAP Force Plot (개별 샘플)", fontsize=10)
         plt.tight_layout()
         return plt.gcf()
 
@@ -58,14 +68,19 @@ def register_shap_plots(output, shap_values_state, X_input_state, y_test_state, 
     def shap_summary_plot():
         shap_values = shap_values_state.get()
         X = X_input_state.get()
+
         if shap_values is None or X is None:
             return plt.figure()
 
-        shap.summary_plot(
-            shap_values.values[:, :, 1] if shap_values.values.ndim == 3 else shap_values.values,
-            X,
-            show=False
-        )
+        if shap_values.values.ndim == 3:  # (n_samples, n_features, 2)
+            vals = shap_values.values[:, :, 1]  # ✅ 클래스 1만
+        else:
+            vals = shap_values.values
+
+        plt.figure()
+        shap.summary_plot(vals, X, show=False)
+        plt.title("SHAP Summary Plot (전체 변수)", fontsize=10)
+        plt.tight_layout()
         return plt.gcf()
 
     # -----------------------
@@ -90,7 +105,9 @@ def register_shap_plots(output, shap_values_state, X_input_state, y_test_state, 
         )
         sorted_idx = result.importances_mean.argsort()
 
+        plt.figure()
         plt.barh(X.columns[sorted_idx], result.importances_mean[sorted_idx])
         plt.xlabel("Permutation Importance")
         plt.title("Permutation Importance (전체 데이터)")
+        plt.tight_layout()
         return plt.gcf()

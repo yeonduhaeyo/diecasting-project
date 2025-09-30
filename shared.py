@@ -5,6 +5,8 @@ import pandas as pd
 import joblib
 import shap
 
+from models.FinalModel.smote_sampler import MajorityVoteSMOTENC
+
 # app.py가 있는 위치를 기준으로 절대 경로 관리
 app_dir = Path(__file__).parent
 # 데이터 경로
@@ -47,6 +49,15 @@ rf_models = {
     "8917": joblib.load(models_dir / "RandomForest" /"rf_mold_8917.pkl"),
     
 }
+
+# rf_models = {
+#     "8412": joblib.load(models_dir / "FinalModel" /"final_rf_mold_8412.pkl"),
+#     "8573": joblib.load(models_dir / "FinalModel" /"final_rf_mold_8573.pkl"),
+#     "8600": joblib.load(models_dir / "FinalModel" /"final_rf_mold_8600.pkl"),
+#     "8722": joblib.load(models_dir / "FinalModel" /"final_rf_mold_8722.pkl"),
+#     "8917": joblib.load(models_dir / "FinalModel" /"final_rf_mold_8917.pkl"),
+    
+# }
 
 rf_explainers = {
     "8412": shap.TreeExplainer(rf_models["8412"].named_steps["model"]),

@@ -77,7 +77,6 @@ def page_result_server(input, output, session):
         # 상태 저장
         shap_values_state.set(shap_values)
         X_input_state.set(X_transformed_df)
-
         return pred
 
     # ================== 출력 UI ==================

@@ -17,7 +17,8 @@ from modules.service_warnings import shap_based_warning
 # ======================
 shap_values_state = reactive.Value(None)
 X_input_state = reactive.Value(None)
-y_test_state = reactive.Value(None)  # permutation importance 용
+y_test_state = reactive.Value(None)
+pred_state = reactive.Value(None)   # ✅ 예측 결과 저장
 
 
 # ======================
@@ -25,7 +26,7 @@ y_test_state = reactive.Value(None)  # permutation importance 용
 # ======================
 def overall_process_card(title: str = "전체 과정 관여 변수", cid: str = "overall"):
     sliders = [
-        ui.input_select("mold_code", "금형 코드", [8412, 8573, 8600, 8722, 8917]),
+        ui.input_select("mold_code", "금형 코드", ["8412", "8573", "8600", "8722", "8917"]),
         ui.input_select("working", "작업 여부", ["가동", "정지"]),
         ui.input_numeric("count", "생산 횟수", value=0),
         ui.input_numeric("facility_operation_cycleTime", "설비 가동 사이클타임", value=120),
@@ -127,8 +128,9 @@ def inputs_layout(schema: Dict[str, Any]):
 
         ui.hr(),
         ui.card(
-            ui.card_header("SHAP Force Plot (개별 샘플)"),
-            ui.output_plot("shap_force_plot")
+            ui.card_header("SHAP 시각화"),
+            ui.output_plot("shap_force_plot"),
+            # ui.output_plot("shap_summary_plot"),
         ),
     )
 
@@ -151,11 +153,11 @@ def page_input_server(input, output, session):
     # -------- 결과 카드 --------
     @output
     @render.ui
+    @reactive.event(input.btn_predict)
     def pred_result_card():
-        if input.btn_predict() == 0:   # 버튼 안 눌렀을 때 안내
-            return ui.div("실행 버튼을 눌러주세요", class_="p-3 text-center")
-
         result = do_predict(input, shap_values_state, X_input_state, rf_models, rf_explainers)
+        pred_state.set(result)   # ✅ 상태 저장
+
         if result == -1:
             return ui.div("해당 mold_code에 대한 모델이 없습니다.",
                           class_="p-3 text-center text-white",
@@ -167,34 +169,33 @@ def page_input_server(input, output, session):
             return ui.div("❌ FAIL", class_="p-3 text-center text-white",
                           style="background-color:#dc3545;border-radius:12px;font-weight:700;")
 
-    @output
-    @render.text
-    @reactive.event(input.btn_predict)   # 버튼 눌렀을 때만 동작
-    def pred_summary():
-        return f"예측 결과: {do_predict(input, shap_values_state, X_input_state, rf_models, rf_explainers)}"
-
     # -------- 공정별 경고 UI --------
     @output
     @render.ui
     @reactive.event(input.btn_predict)
-    def g1_warn_msg(): return shap_based_warning("molten", shap_values_state, X_input_state, feature_name_map)
+    def g1_warn_msg():
+        return shap_based_warning("molten", shap_values_state, X_input_state, feature_name_map)
 
     @output
     @render.ui
     @reactive.event(input.btn_predict)
-    def g2_warn_msg(): return shap_based_warning("slurry", shap_values_state, X_input_state, feature_name_map)
+    def g2_warn_msg():
+        return shap_based_warning("slurry", shap_values_state, X_input_state, feature_name_map)
 
     @output
     @render.ui
     @reactive.event(input.btn_predict)
-    def g3_warn_msg(): return shap_based_warning("injection", shap_values_state, X_input_state, feature_name_map)
+    def g3_warn_msg():
+        return shap_based_warning("injection", shap_values_state, X_input_state, feature_name_map)
 
     @output
     @render.ui
     @reactive.event(input.btn_predict)
-    def g4_warn_msg(): return shap_based_warning("solidify", shap_values_state, X_input_state, feature_name_map)
+    def g4_warn_msg():
+        return shap_based_warning("solidify", shap_values_state, X_input_state, feature_name_map)
 
     @output
     @render.ui
     @reactive.event(input.btn_predict)
-    def overall_warn_msg(): return shap_based_warning("overall", shap_values_state, X_input_state, feature_name_map)
+    def overall_warn_msg():
+        return shap_based_warning("overall", shap_values_state, X_input_state, feature_name_map)

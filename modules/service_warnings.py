@@ -39,7 +39,7 @@ def shap_based_warning(process: str, shap_values_state, X_input_state, feature_n
     elif process == "solidify":
         key_vars = ["num__upper_mold_temp1", "num__upper_mold_temp2", "num__Coolant_temperature"]
     elif process == "overall":
-        key_vars = X.columns.tolist()   # 전체 공정 → 모든 변수
+        key_vars = ["num__count"]   # 전체 공정 → 모든 변수
     else:
         key_vars = []
 

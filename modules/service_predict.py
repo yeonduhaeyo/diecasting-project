@@ -76,6 +76,7 @@ def do_predict(input, shap_values_state, X_input_state, models, explainers):
     # ✅ 3) SHAP 계산
     try:
         shap_values = explainer(X_transformed_df)
+        # print(f"[DEBUG] SHAP 계산 성공: type={type(shap_values)}, shape={getattr(shap_values, 'values', None).shape if hasattr(shap_values, 'values') else 'no values'}")
     except Exception as e:
         print(f"[ERROR] SHAP calculation failed: {e}")
         shap_values = None
