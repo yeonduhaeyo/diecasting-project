@@ -1,4 +1,3 @@
-# page_input.py
 from shiny import ui, render, reactive
 import pandas as pd
 from typing import Dict, Any
@@ -24,38 +23,13 @@ pred_state = reactive.Value(None)   # ✅ 예측 결과 저장
 # ======================
 # 카드 UI 컴포넌트
 # ======================
-def overall_process_card(title: str = "전체 과정 관여 변수", cid: str = "overall"):
-    sliders = [
-        ui.input_select("mold_code", "금형 코드", ["8412", "8573", "8600", "8722", "8917"]),
-        ui.input_select("working", "작업 여부", ["가동", "정지"]),
-        ui.input_numeric("count", "생산 횟수", value=0),
-        ui.input_numeric("facility_operation_cycleTime", "설비 가동 사이클타임", value=120),
-        ui.input_numeric("production_cycletime", "생산 사이클타임", value=150),
-        ui.input_checkbox("tryshot_check", "트라이샷 여부", value=False)
-    ]
-
-    return ui.card(
-        ui.card(
-            ui.card_header(title),
-            ui.output_ui(f"{cid}_warn_msg"),
-            class_="mb-3",
-            style="min-height:150px; width:100%;"
-        ),
-        ui.accordion(
-            ui.accordion_panel("변수 입력", *sliders),
-            id=f"{cid}_panel", open=[]
-        ),
-        class_="mb-4",
-        style="min-width:250px;"
-    )
-
-
 def process_card_with_inputs(title: str, img: str, sliders: list, cid: str):
     return ui.card(
         ui.card_header(f"{title}"),
         ui.accordion(
             ui.accordion_panel("변수 입력", *sliders),
-            id=f"{cid}_panel", open=[]
+            id=f"{cid}_panel",
+            open=[]  # ✅ 기본 닫힘 상태
         ),
         ui.img(
             src=img,
@@ -64,10 +38,10 @@ def process_card_with_inputs(title: str, img: str, sliders: list, cid: str):
         ui.card(
             ui.output_ui(f"{cid}_warn_msg"),
             class_="mb-3",
-            style="min-height:250px; max-height:400px; width:100%; overflow:auto;"
+            style="min-height:200px; max-height:300px; overflow:auto;"
         ),
         class_="mb-4",
-        style="min-width:250px;"
+        style="min-width:250px; min-height:500px;"   # ✅ 최소 크기만 보장, 열리면 개별 카드만 늘어남
     )
 
 
@@ -75,9 +49,56 @@ def process_card_with_inputs(title: str, img: str, sliders: list, cid: str):
 # Layout
 # ======================
 def inputs_layout(schema: Dict[str, Any]):
+    custom_style = ui.tags.style("""
+        /* 전체 카드 공통 */
+        .card {
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .card:hover {
+            transform: translateY(-4px);   /* ✅ 마우스 올리면 카드 위로 4px 상승 */
+            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+        }
+
+        /* 카드 헤더 - 메탈 블루 톤 */
+        .card-header {
+            background-color: #2b3e50;   /* 메탈 블루 */
+            color: #f8f9fa;
+            font-weight: 600;
+            border-bottom: 2px solid #1c2833;
+        }
+
+        /* 아코디언 버튼 */
+        .accordion-button {
+            background-color: #f1f3f5;
+            color: #212529;
+        }
+        .accordion-button:not(.collapsed) {
+            background-color: #dee2e6;
+            color: #2b3e50;
+            font-weight: 600;
+        }
+
+        /* 액션 버튼 (예측 실행) */
+        .btn-primary {
+            background-color: #e8590c;   /* 강렬한 오렌지 */
+            border-color: #e8590c;
+            font-weight: 600;
+            border-radius: 8px;          /* 살짝 둥글게 */
+            padding: 8px 16px;
+        }
+        .btn-primary:hover {
+            background-color: #cf4f0b;
+            border-color: #cf4f0b;
+            transform: scale(1.05);      /* ✅ 버튼 hover 시 살짝 커짐 */
+        }
+    """)
     return ui.page_fluid(
+        custom_style,  # ✅ 스타일 적용
         ui.h3("주조 공정 입력"),
 
+        # 전체 예측 결과 카드
         ui.card(
             ui.card_header("전체 예측 결과"),
             ui.output_ui("pred_result_card"),
@@ -87,6 +108,8 @@ def inputs_layout(schema: Dict[str, Any]):
         ),
 
         ui.hr(),
+
+        # 공정별 입력 카드들
         ui.layout_columns(
             process_card_with_inputs(
                 "1) 용탕 준비 및 가열", "molten2.png",
@@ -122,7 +145,17 @@ def inputs_layout(schema: Dict[str, Any]):
                     ui.input_slider("coolant_temp", "냉각수 온도 (℃)", 0, 50, 30)
                 ], "g4"
             ),
-            overall_process_card(),
+            process_card_with_inputs(
+                "기타) 전체 과정 관여 변수", "overall.png",   # 필요시 이미지 교체
+                [
+                    ui.input_select("mold_code", "금형 코드", ["8412", "8573", "8600", "8722", "8917"]),
+                    ui.input_select("working", "작업 여부", ["가동", "정지"]),
+                    ui.input_numeric("count", "생산 횟수", value=0),
+                    ui.input_numeric("facility_operation_cycleTime", "설비 가동 사이클타임", value=120),
+                    ui.input_numeric("production_cycletime", "생산 사이클타임", value=150),
+                    ui.input_checkbox("tryshot_check", "트라이샷 여부", value=False)
+                ], "overall"
+            ),
             fill=True
         ),
 
@@ -130,7 +163,6 @@ def inputs_layout(schema: Dict[str, Any]):
         ui.card(
             ui.card_header("SHAP 시각화"),
             ui.output_plot("shap_force_plot"),
-            # ui.output_plot("shap_summary_plot"),
         ),
     )
 
