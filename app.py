@@ -13,8 +13,8 @@ SCHEMA = schema_utils.build_schema_from_csv(DATA1)
 app_ui = ui.page_navbar(
     ui.nav_panel("공정 불량 예측", page_input.inputs_layout(SCHEMA)),  # ← layout 대신 page_input 직접 호출
     ui.nav_panel("공정 설명", page_process.page_process_ui()),
-    ui.nav_panel("부록 - eda", page_eda.page_eda_ui()),
-    ui.nav_panel("부록 - 전처리", page_preprocess.page_preprocess_ui()),
+    ui.nav_panel("데이터 탐색", page_eda.page_eda_ui()),
+    ui.nav_panel("전처리 및 모델 설명", page_preprocess.page_preprocess_ui()),
     title="주조 공정 품질 예측",
     id="main_nav"
 )

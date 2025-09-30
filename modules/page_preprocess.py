@@ -3,42 +3,71 @@ from shiny import ui, render
 def page_preprocess_ui():
     return ui.page_fluid(
         ui.h3("데이터 전처리 과정"),
-        ui.layout_columns(
-            ui.card(
-                ui.card_header("① 결측치 처리"),
-                ui.p("데이터셋의 결측값을 확인하고, 평균 대체 또는 제거 방법을 적용합니다."),
-                class_="bg-light"
+
+        ui.accordion(
+            # ① 결측치 처리
+            ui.accordion_panel(
+                "① 결측치 처리",
+                ui.p("➡️ 설명: 결측값 확인 및 처리 방법 (평균 대체, 제거 등)"),
+                ui.output_plot("missing_plot"),
+                ui.output_table("missing_table")
             ),
-            ui.card(
-                ui.card_header("② 이상치 탐지"),
-                ui.p("통계적 방법(IQR, Z-score 등)을 사용하여 이상치를 탐지하고, 적절히 처리합니다."),
-                class_="bg-light"
+
+            # ② 이상치 탐지
+            ui.accordion_panel(
+                "② 이상치 탐지",
+                ui.p("➡️ 설명: IQR, Z-score 등을 이용한 이상치 탐지"),
+                ui.output_plot("outlier_plot"),
             ),
-            col_widths=[6, 6]  # 2열 레이아웃
-        ),
-        ui.br(),
-        ui.layout_columns(
-            ui.card(
-                ui.card_header("③ 스케일링"),
-                ui.p("수치형 변수는 표준화(StandardScaler) 또는 정규화(MinMaxScaler)를 적용합니다."),
-                class_="bg-light"
+
+            # ③ 스케일링
+            ui.accordion_panel(
+                "③ 스케일링",
+                ui.p("➡️ 설명: StandardScaler, MinMaxScaler 적용 전후 비교"),
+                ui.output_plot("scaling_before"),
+                ui.output_plot("scaling_after")
             ),
-            ui.card(
-                ui.card_header("④ 범주형 인코딩"),
-                ui.p("범주형 변수는 원-핫 인코딩(One-hot encoding) 또는 라벨 인코딩을 적용합니다."),
-                class_="bg-light"
+
+            # ④ 범주형 인코딩
+            ui.accordion_panel(
+                "④ 범주형 인코딩",
+                ui.p("➡️ 설명: One-hot Encoding, Label Encoding 적용"),
+                ui.output_table("encoding_example")
             ),
-            col_widths=[6, 6]
-        ),
-        ui.br(),
-        ui.card(
-            ui.card_header("⑤ 데이터 분할"),
-            ui.p("학습/검증/테스트 데이터셋으로 분할하여 모델 학습에 활용합니다."),
-            class_="bg-light"
+
+            # ⑤ 데이터 분할
+            ui.accordion_panel(
+                "⑤ 데이터 분할",
+                ui.p("➡️ 설명: Train/Validation/Test 분할"),
+                ui.output_plot("split_chart")
+            ),
+            
+            # 최적 예측모델 선정
+            ui.accordion_panel(
+                "⑥ 최적 예측모델 선정",
+                ui.p("➡️ 설명: 총 10개의 예측모델 생성 후 최적 모델 선정"),
+                ui.output_plot("split_chart")
+            ),
+
+            id="preprocess_panel",
+            open=False,        # 초기에 모두 닫힘
+            multiple=False     # 한 번에 하나만 열림
         )
     )
 
 
 def page_preprocess_server(input, output, session):
 
-    pass
+    @output
+    @render.plot
+    def missing_plot():
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        ax.text(0.5, 0.5, "결측치 시각화 자리", ha="center", va="center")
+        return fig
+
+    @output
+    @render.table
+    def missing_table():
+        import pandas as pd
+        return pd.DataFrame({"Column": ["A", "B"], "Missing %": [10, 5]})
