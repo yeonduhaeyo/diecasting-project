@@ -1,10 +1,9 @@
-# page_input.py
 from shiny import ui, render, reactive
 import pandas as pd
 from typing import Dict, Any
 
 from shared import (
-    feature_name_map,
+    feature_name_map, feature_name_map_kor,
     rf_models, rf_explainers  # ✅ RandomForest 모델/설명자
 )
 from viz.shap_plots import register_shap_plots
@@ -17,75 +16,93 @@ from modules.service_warnings import shap_based_warning
 # ======================
 shap_values_state = reactive.Value(None)
 X_input_state = reactive.Value(None)
-y_test_state = reactive.Value(None)  # permutation importance 용
+y_test_state = reactive.Value(None)
+pred_state = reactive.Value(None)   # ✅ 예측 결과 저장
 
 
 # ======================
 # 카드 UI 컴포넌트
 # ======================
-def overall_process_card(title: str = "전체 과정 관여 변수", cid: str = "overall"):
-    sliders = [
-        ui.input_select("mold_code", "금형 코드", [8412, 8573, 8600, 8722, 8917]),
-        ui.input_select("working", "작업 여부", ["가동", "정지"]),
-        ui.input_numeric("count", "생산 횟수", value=0),
-        ui.input_numeric("facility_operation_cycleTime", "설비 가동 사이클타임", value=120),
-        ui.input_numeric("production_cycletime", "생산 사이클타임", value=150),
-        ui.input_checkbox("tryshot_check", "트라이샷 여부", value=False)
-    ]
-
-    return ui.card(
-        ui.card(
-            ui.card_header(title),
-            ui.output_ui(f"{cid}_warn_msg"),
-            class_="mb-3",
-            style="min-height:150px; width:100%;"
-        ),
-        ui.accordion(
-            ui.accordion_panel("변수 입력", *sliders),
-            id=f"{cid}_panel", open=[]
-        ),
-        class_="mb-4",
-        style="min-width:250px;"
-    )
-
-
 def process_card_with_inputs(title: str, img: str, sliders: list, cid: str):
     return ui.card(
         ui.card_header(f"{title}"),
         ui.accordion(
             ui.accordion_panel("변수 입력", *sliders),
-            id=f"{cid}_panel", open=[]
+            id=f"{cid}_panel",
+            open=False
         ),
-        ui.img(
-            src=img,
-            style="width:100%; height:auto; object-fit:contain; margin-bottom:10px;"
+        ui.div(
+            ui.img(
+                src=img,
+                style="width:150px; height:auto; object-fit:contain; margin-bottom:10px;"
+            ),
+            style="text-align:center;"
         ),
-        ui.card(
-            ui.output_ui(f"{cid}_warn_msg"),
-            class_="mb-3",
-            style="min-height:250px; max-height:400px; width:100%; overflow:auto;"
+        ui.div(
+            ui.output_ui(f"{cid}_warn_msg_default"),
+            ui.output_ui(f"{cid}_warn_msg_pred"),
+            class_="p-0 m-0",
+            style="min-height:200px; max-height:300px; overflow:auto;"
         ),
-        class_="mb-4",
-        style="min-width:250px;"
+        class_="mb-2 p-0",  
+        style="min-width:100px; min-height:100px;"
     )
-
-
+    
 # ======================
 # Layout
 # ======================
 def inputs_layout(schema: Dict[str, Any]):
+    custom_style = ui.tags.style("""
+            /* 전체 카드 공통 */
+            .card {
+                border-radius: 10px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                transition: transform 0.2s, box-shadow 0.2s;
+            }
+            .card:hover {
+                transform: translateY(-4px);
+                box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+            }
+
+            /* 카드 헤더 - 메탈 블루 톤 */
+            .card-header {
+                background-color: #2b3e50;
+                color: #f8f9fa;
+                font-weight: 600;
+                font-size: 1.1rem;
+                border-bottom: 2px solid #1c2833;
+            }
+
+            /* 아코디언 버튼 */
+            .accordion-button {
+                background-color: #f1f3f5;
+                color: #212529;
+            }
+            .accordion-button:not(.collapsed) {
+                background-color: #dee2e6;
+                color: #2b3e50;
+                font-weight: 600;
+            }
+
+            /* 액션 버튼 (예측 실행) */
+            .btn-primary {
+                background-color: #0d6efd;
+                border-color: #0d6efd;
+                font-weight: 600;
+                border-radius: 8px;
+                padding: 8px 16px;
+            }
+            .btn-primary:hover {
+                background-color: #0b5ed7;
+                border-color: #0b5ed7;
+                transform: scale(1.05);
+            }
+        """)
     return ui.page_fluid(
+        custom_style,
         ui.h3("주조 공정 입력"),
 
-        ui.card(
-            ui.card_header("전체 예측 결과"),
-            ui.output_ui("pred_result_card"),
-            ui.input_action_button("btn_predict", "예측 실행", class_="btn btn-primary"),
-            class_="mb-3",
-            style="min-height:200px; min-width:250px;"
-        ),
-
-        ui.hr(),
+        # 공정별 입력 카드들
         ui.layout_columns(
             process_card_with_inputs(
                 "1) 용탕 준비 및 가열", "molten2.png",
@@ -121,14 +138,35 @@ def inputs_layout(schema: Dict[str, Any]):
                     ui.input_slider("coolant_temp", "냉각수 온도 (℃)", 0, 50, 30)
                 ], "g4"
             ),
-            overall_process_card(),
+            process_card_with_inputs(
+                "기타) 전체 과정 관여 변수", "overall.png",
+                [
+                    ui.input_select("mold_code", "금형 코드", ["8412", "8573", "8600", "8722", "8917"]),
+                    ui.input_select("working", "작업 여부", ["가동", "정지"]),
+                    ui.input_numeric("count", "생산 횟수", value=0),
+                    ui.input_numeric("facility_operation_cycleTime", "설비 가동 사이클타임", value=120),
+                    ui.input_numeric("production_cycletime", "생산 사이클타임", value=150),
+                    ui.input_checkbox("tryshot_check", "트라이샷 여부", value=False)
+                ], "overall"
+            ),
             fill=True
         ),
 
-        ui.hr(),
+        # 전체 예측 결과 카드
         ui.card(
-            ui.card_header("SHAP Force Plot (개별 샘플)"),
-            ui.output_plot("shap_force_plot")
+            ui.card_header("전체 예측 결과"),
+            ui.output_ui("pred_result_card_default"),  # 초기 안내 메시지
+            ui.output_ui("pred_result_card"),          # 버튼 클릭 후 결과
+            ui.input_action_button("btn_predict", "예측 실행", class_="btn btn-primary"),
+            class_="mb-3",
+            style="min-height:200px; min-width:250px;"
+        ),
+
+        ui.hr(),
+
+        ui.card(
+            ui.card_header("SHAP 시각화"),
+            ui.output_plot("shap_force_plot"),
         ),
     )
 
@@ -148,53 +186,129 @@ def page_input_server(input, output, session):
         input
     )
 
-    # -------- 결과 카드 --------
+    # ✅ 버튼 누르면 아코디언 닫기
+    @reactive.effect
+    @reactive.event(input.btn_predict)
+    def close_accordions():
+        for panel_id in ["g1_panel", "g2_panel", "g3_panel", "g4_panel", "overall_panel"]:
+            ui.update_accordion(panel_id, show=False)
+
+    # -------- 초기 상태: 전체 결과 --------
     @output
     @render.ui
+    def pred_result_card_default():
+        if input.btn_predict() == 0:
+            return ui.div(
+                "🔍 변수를 입력하고 '예측 실행' 버튼을 눌러주세요",
+                class_="p-3 text-center text-white",
+                style="background-color:#6c757d;border-radius:12px;font-weight:600;"
+            )
+
+    # -------- 버튼 클릭 후: 전체 결과 --------
+    @output
+    @render.ui
+    @reactive.event(input.btn_predict)
     def pred_result_card():
-        if input.btn_predict() == 0:   # 버튼 안 눌렀을 때 안내
-            return ui.div("실행 버튼을 눌러주세요", class_="p-3 text-center")
+        pred, proba = do_predict(input, shap_values_state, X_input_state, rf_models, rf_explainers)
+        pred_state.set(pred)
 
-        result = do_predict(input, shap_values_state, X_input_state, rf_models, rf_explainers)
-        if result == -1:
-            return ui.div("해당 mold_code에 대한 모델이 없습니다.",
-                          class_="p-3 text-center text-white",
-                          style="background-color:#6c757d;border-radius:12px;font-weight:700;")
-        elif result == 0:
-            return ui.div("✅ PASS", class_="p-3 text-center text-white",
-                          style="background-color:#0d6efd;border-radius:12px;font-weight:700;")
+        if pred == -1:
+            return ui.div(
+                "⚠️ 해당 mold_code에 대한 모델이 없습니다.",
+                class_="p-3 text-center text-white",
+                style="background-color:#6c757d;border-radius:12px;font-weight:700;"
+            )
+        elif pred == 0:
+            return ui.div(
+                f"✅ PASS / 불량 확률: {proba:.2%}",
+                class_="p-3 text-center text-white",
+                style="background-color:#0d6efd;border-radius:12px;font-weight:700;"
+            )
         else:
-            return ui.div("❌ FAIL", class_="p-3 text-center text-white",
-                          style="background-color:#dc3545;border-radius:12px;font-weight:700;")
+            return ui.div(
+                f"❌ FAIL / 불량 확률: {proba:.2%}",
+                class_="p-3 text-center text-white",
+                style="background-color:#dc3545;border-radius:12px;font-weight:700;"
+            )
 
-    @output
-    @render.text
-    @reactive.event(input.btn_predict)   # 버튼 눌렀을 때만 동작
-    def pred_summary():
-        return f"예측 결과: {do_predict(input, shap_values_state, X_input_state, rf_models, rf_explainers)}"
+    # -------- 공정별 경고 (초기 상태 + 버튼 후) --------
+    def warn_msg_factory(process_name, cid, process_label):
+        @output(id=f"{cid}_warn_msg_default")
+        @render.ui
+        def _default():
+            if input.btn_predict() == 0:
+                return ui.card_body(
+                    ui.p("예측을 실행하면", ui.br(), "분석 결과가 표시됩니다"),
+                    class_="text-center text-white p-2 m-2",
+                    style="background-color:#adb5bd; border-radius:6px; "
+                        "font-weight:600;"
+                )
 
-    # -------- 공정별 경고 UI --------
-    @output
-    @render.ui
-    @reactive.event(input.btn_predict)
-    def g1_warn_msg(): return shap_based_warning("molten", shap_values_state, X_input_state, feature_name_map)
+        @output(id=f"{cid}_warn_msg_pred")
+        @render.ui
+        @reactive.event(input.btn_predict)
+        def _pred():
+            result = shap_based_warning(
+                process_name,
+                shap_values_state,
+                X_input_state,
+                feature_name_map_kor,
+                pred_state
+            )
+            return ui.div(
+                # ✅ 요약(header)만 카드에 표시
+                result["header"],
 
-    @output
-    @render.ui
-    @reactive.event(input.btn_predict)
-    def g2_warn_msg(): return shap_based_warning("slurry", shap_values_state, X_input_state, feature_name_map)
+                # ✅ 상세 결과 모달 버튼
+                ui.input_action_button(
+                    f"{cid}_detail_btn",
+                    "상세 결과 보기",
+                    class_="btn btn-sm btn-secondary w-100 mt-2 mb-0"
+                ),
 
-    @output
-    @render.ui
-    @reactive.event(input.btn_predict)
-    def g3_warn_msg(): return shap_based_warning("injection", shap_values_state, X_input_state, feature_name_map)
+                # class_="p-3"
+                class_="p-0 mt-2"
+                
+            )
 
-    @output
-    @render.ui
-    @reactive.event(input.btn_predict)
-    def g4_warn_msg(): return shap_based_warning("solidify", shap_values_state, X_input_state, feature_name_map)
+        # ✅ 모달 이벤트
+        @reactive.effect
+        @reactive.event(input[f"{cid}_detail_btn"])
+        def show_modal():
+            result = shap_based_warning(
+                process_name,
+                shap_values_state,
+                X_input_state,
+                feature_name_map_kor,
+                pred_state
+            )
+            ui.modal_show(
+                ui.modal(
+                    # ui.h4(f"{process_label} 상세 결과"),
+                    ui.div(
+                    result["details"],
+                    style="font-size:2rem;"   # ✅ 글씨 크기 키움
+                    ),
+                    title=f"{process_label} 상세 결과",
+                    easy_close=True,
+                    footer=ui.input_action_button(
+                        f"{cid}_close_modal",
+                        "닫기",
+                        class_="btn btn-secondary"
+                    )
+                )
+            )
+            
+        @reactive.effect
+        @reactive.event(input[f"{cid}_close_modal"])
+        def close_modal():
+            ui.modal_remove()
 
-    @output
-    @render.ui
-    @reactive.event(input.btn_predict)
-    def overall_warn_msg(): return shap_based_warning("overall", shap_values_state, X_input_state, feature_name_map)
+
+    # ✅ 각 공정별로 팩토리 적용
+    warn_msg_factory("molten", "g1", "용탕 준비 및 가열")
+    warn_msg_factory("slurry", "g2", "반고체 슬러리 제조")
+    warn_msg_factory("injection", "g3", "사출 & 금형 충전")
+    warn_msg_factory("solidify", "g4", "응고")
+    warn_msg_factory("overall", "overall", "전체 과정")
+
