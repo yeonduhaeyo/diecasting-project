@@ -184,26 +184,108 @@ def page_preprocess_ui():
                 ui.p("➡️ 수치형: RobustScaler 적용 (이상치 영향 완화)"),
                 ui.p("➡️ 범주형: One-hot Encoding 적용"),
                 ui.p("➡️ MajorityVoteSMOTENC 활용 → 수치형은 보간, 범주형은 다수결 선택"),
+                ui.img(src="majorityvotesmotenc.png",
+                            style="width:100%; max-width:500px; margin-bottom:15px;"),
                 ui.output_plot("scaling_before"),
                 ui.output_plot("scaling_after"),
                 ui.output_table("encoding_example"),
             ),
 
-            # 4. 최종 모델 도출
             ui.accordion_panel(
                 "4. 최종 모델 도출",
-                
-                ui.h4("최종 모델 성능 지표"),
-                ui.p("➡️ 최종 후보 모델 2개에 대해 주요 성능 지표 비교 (예: Accuracy, F1-score)"),
-                ui.output_plot("final_model_metric_plot"),
-                ui.output_table("final_model_metrics"),
+
+                ui.h4("금형 코드별 모델 성능 비교 (RandomForest vs XGBoost)"),
+
+                ui.layout_columns(
+                    # 왼쪽: RandomForest
+                    ui.card(
+                        ui.card_header("RandomForest 결과"),
+                        ui.img(src="rf_img/RandomForest_Moldcode8412.PNG",
+                            style="width:100%; max-width:500px; margin-bottom:15px;"),
+                        ui.img(src="rf_img/RandomForest_Moldcode8573.PNG",
+                            style="width:100%; max-width:500px; margin-bottom:15px;"),
+                        ui.img(src="rf_img/RandomForest_Moldcode8600.PNG",
+                            style="width:100%; max-width:500px; margin-bottom:15px;"),
+                        ui.img(src="rf_img/RandomForest_Moldcode8722.PNG",
+                            style="width:100%; max-width:500px; margin-bottom:15px;"),
+                        ui.img(src="rf_img/RandomForest_Moldcode8917.PNG",
+                            style="width:100%; max-width:500px; margin-bottom:15px;"),
+                    ),
+
+                    # 오른쪽: XGBoost
+                    ui.card(
+                        ui.card_header("XGBoost 결과"),
+                        ui.img(src="xgb_img/8412.PNG",
+                            style="width:100%; max-width:500px; margin-bottom:15px;"),
+                        ui.img(src="xgb_img/8573.PNG",
+                            style="width:100%; max-width:500px; margin-bottom:15px;"),
+                        ui.img(src="xgb_img/8600.PNG",
+                            style="width:100%; max-width:500px; margin-bottom:15px;"),
+                        ui.img(src="xgb_img/8722.PNG",
+                            style="width:100%; max-width:500px; margin-bottom:15px;"),
+                        ui.img(src="xgb_img/8917.PNG",
+                            style="width:100%; max-width:500px; margin-bottom:15px;"),
+                    ),
+                    col_widths=[6, 6]
+                ),
 
                 ui.hr(),
 
                 ui.h4("최종 모델 선정 및 최적 하이퍼파라미터 확인"),
-                ui.p("➡️ 최종 모델의 최적 하이퍼파라미터"),
-                ui.output_table("best_hyperparams"),
+                ui.p("➡️ 금형 코드별 Best Hyperparameter 정리"),
+
+                ui.HTML("""
+                <table class="table table-bordered table-hover" style="font-size:0.85rem; text-align:center;">
+                    <thead class="table-secondary">
+                        <tr>
+                            <th>금형 코드</th>
+                            <th>Threshold</th>
+                            <th>ccp_alpha</th>
+                            <th>Max Depth</th>
+                            <th>Max Features</th>
+                            <th>Min Impurity Decrease</th>
+                            <th>Min Samples Leaf</th>
+                            <th>Min Samples Split</th>
+                            <th>n_estimators</th>
+                            <th>SMOTE k-neighbors</th>
+                            <th>SMOTE Sampling Ratio</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>8917</td><td>0.66</td><td>0.000001</td><td>None</td><td>0.5</td><td>0</td><td>6</td><td>10</td><td>100</td><td>9</td><td>0.295</td></tr>
+                        <tr><td>8412</td><td>0.48</td><td>0.000001</td><td>12</td><td>0.5</td><td>0.00001</td><td>6</td><td>9</td><td>100</td><td>3</td><td>0.366</td></tr>
+                        <tr><td>8573</td><td>0.66</td><td>0.00002</td><td>16</td><td>0.7</td><td>0.00007</td><td>4</td><td>5</td><td>298</td><td>6</td><td>0.453</td></tr>
+                        <tr><td>8722</td><td>0.52</td><td>0.000001</td><td>16</td><td>sqrt</td><td>0.00001</td><td>1</td><td>2</td><td>400</td><td>9</td><td>0.5</td></tr>
+                        <tr><td>8600</td><td>0.22</td><td>0.001</td><td>10</td><td>1</td><td>0.00001</td><td>3</td><td>6</td><td>100</td><td>8</td><td>0.25</td></tr>
+                    </tbody>
+                </table>
+                """),
+                
+                
+                ui.hr(),
+
+                ui.h4("SHAP 그래프 시각화"),
+                ui.p("➡️ 최종 모델에서 주요 Feature 중요도를 SHAP 기반으로 시각화"),
+
+                ui.layout_columns(
+                    ui.card(
+                        ui.card_header("SHAP Importance"),
+                        ui.p("SHAP 값을 기반으로 각 Feature가 예측에 기여한 정도를 해석"),
+                        ui.img(src="shap_importance.png",
+                            style="width:100%; max-width:500px; margin-bottom:15px;")
+                    ),
+                    ui.card(
+                        ui.card_header("Permutation Importance"),
+                        ui.p("Feature 값을 무작위로 섞어 예측 성능 저하 정도로 중요도를 평가"),
+                        ui.img(src="permutation_importance.png",
+                            style="width:100%; max-width:500px; margin-bottom:15px;")
+                    ),
+                    col_widths=[6, 6]
+
             ),
+                            
+            ),                            
+            
             id="preprocess_panel",
             open=False,     # 기본값: 다 닫힘
             multiple=False  # 하나 열리면 나머지는 닫힘
