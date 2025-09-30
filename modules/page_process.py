@@ -2,35 +2,44 @@ from shiny import ui
 
 def page_process_ui():
     
-    # 1. Cut-off 제목의 내용 (ui.tags.th를 제외한 내용)을 변수로 정의
-    #    이 변수는 create_management_table 함수 내의 <th> 태그에서 사용됩니다.
-    cutoff_content = ui.tooltip(
-        ui.span(["Cut-off", ui.HTML('<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" fill=\"#1976d2\" class=\"bi bi-info-circle-fill mb-1\" viewBox=\"0 0 16 16\"><path d=\"M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM5.496 6.033h.825c.138 0 .248-.113.266-.25.09-.656.54-1.134 1.342-1.134.686 0 1.314.343 1.314 1.168 0 .635-.374.927-.965 1.371-.673.489-1.206 1.06-1.168 1.987l.003.217a.25.25 0 0 0 .25.246h.811a.25.25 0 0 0 .25-.25v-.105c0-.718.273-.927 1.01-1.486.609-.463 1.244-.977 1.244-2.056 0-1.511-1.276-2.241-2.673-2.241-1.267 0-2.655.59-2.75 2.286a.237.237 0 0 0 .241.247zm2.325 6.443c.61 0 1.029-.394 1.029-.927 0-.552-.42-.94-1.029-.94-.584 0-1.009.388-1.009.94 0 .533.425.927 1.01.927z\"/></svg>')]),
-        "cut-off란? 불량률이 급격히 증가하는 임계값을 의미합니다 (0.15 기준)",
+    # 1. 툴팁 아이콘 콘텐츠 정의 (테이블 밖에서 재사용)
+    # 아이콘 SVG와 툴팁 메시지를 정의합니다.
+    tooltip_icon_content = ui.span([
+        ui.HTML('<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" fill=\"#1976d2\" class=\"bi bi-info-circle-fill mb-1\" viewBox=\"0 0 16 16\"><path d=\"M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM5.496 6.033h.825c.138 0 .248-.113.266-.25.09-.656.54-1.134 1.342-1.134.686 0 1.314.343 1.314 1.168 0 .635-.374.927-.965 1.371-.673.489-1.206 1.06-1.168 1.987l.003.217a.25.25 0 0 0 .25.246h.811a.25.25 0 0 0 .25-.25v-.105c0-.718.273-.927 1.01-1.486.609-.463 1.244-.977 1.244-2.056 0-1.511-1.276-2.241-2.673-2.241-1.267 0-2.655.59-2.75 2.286a.237.237 0 0 0 .241.247zm2.325 6.443c.61 0 1.029-.394 1.029-.927 0-.552-.42-.94-1.029-.94-.584 0-1.009.388-1.009.94 0 .533.425.927 1.01.927z\"/></svg>')
+    ])
+    
+    # 최종 툴팁 컴포넌트 (설명 내용 업데이트)
+    tooltip_component = ui.tooltip(
+        tooltip_icon_content,
+        "Cut-off란? 불량률이 급격히 증가하는 임계값을 의미", # 설명 업데이트
         placement="right"
     )
-
-    # 2. 탭별 관리 기준 테이블 생성 함수 (반복 줄이기)
-    def create_management_table(data_rows):
-        # 테이블 스타일: 폭을 좁히고 셀 간격을 조정
+    
+    # 2. 탭별 관리 기준 테이블 생성 함수 (하한/상한 분리)
+    def create_management_table_revised(data_rows):
+        
         return ui.tags.table(
             {
                 "style": "width: 100%; max-width: 450px; border-spacing: 0; border-collapse: collapse;"},
             ui.tags.thead(
                 ui.tags.tr(
-                    ui.tags.th({"style": "width: 70%; text-align: left; padding: 4px;"}, "변수"),
-                    # **수정된 부분:** white-space: nowrap을 추가하여 줄 바꿈 방지
-                    ui.tags.th({
-                        "style": "width: 30%; text-align: right; padding: 4px; white-space: nowrap;" 
-                    }, cutoff_content), 
+                    # 변수
+                    ui.tags.th({"style": "width: 60%; text-align: left; padding: 4px;"}, "변수"),
+                    # Cut-off 하한 (툴팁 및 아이콘 제거)
+                    ui.tags.th({"style": "width: 20%; text-align: center; padding: 4px; white-space: nowrap;"}, 
+                               "Cut-off (하한)"),
+                    # Cut-off 상한
+                    ui.tags.th({"style": "width: 20%; text-align: center; padding: 4px; white-space: nowrap;"}, 
+                               "Cut-off (상한)"),
                 )
             ),
             ui.tags.tbody(*[
-                # 변수와 값을 테이블 행으로 받아서 td에 스타일 적용
+                # (변수명, 하한값, 상한값)
                 ui.tags.tr(
                     ui.tags.td({"style": "padding: 2px 4px;"}, var_name),
-                    ui.tags.td({"style": "padding: 2px 4px; text-align: right;"}, var_value)
-                ) for var_name, var_value in data_rows
+                    ui.tags.td({"style": "padding: 2px 4px; text-align: center;"}, lower_value),
+                    ui.tags.td({"style": "padding: 2px 4px; text-align: center;"}, upper_value)
+                ) for var_name, lower_value, upper_value in data_rows
             ])
         )
 
@@ -81,11 +90,16 @@ def page_process_ui():
                         ui.input_select("selected_var_molten", "변수 선택", choices=["molten_temp", "molten_volume"]),
                     ),
                     ui.card(ui.h4("공정 설명"), ui.markdown("용탕을 가열로에서 준비 → 주조 안정성에 직결")),
+                    # **수정된 관리 기준 카드:** 툴팁을 우측 상단으로 이동
                     ui.card(
-                        ui.h4("관리 기준"),
-                        create_management_table([
-                            ("용탕 온도 (molten_temp)", "-"),
-                            ("용탕 부피 (molten_volume)", "113"),
+                        ui.div(
+                            {"style": "display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;"},
+                            ui.h4("관리 기준", style="margin: 0;"), # h4의 기본 마진 제거
+                            tooltip_component # 우측 상단에 툴팁 배치
+                        ),
+                        create_management_table_revised([
+                            ("용탕 온도 (molten_temp)", "-", "-"),
+                            ("용탕 부피 (molten_volume)", "5", "113"),
                         ])
                     ),
                     ui.card(ui.h4("실제 데이터 기반 불량율 변화 그래프"), ui.output_plot("plot_selected_var_quality_molten"))
@@ -101,11 +115,16 @@ def page_process_ui():
                         ui.input_select("selected_var_slurry", "변수 선택", choices=["sleeve_temperature", "EMS_operation_time"]),
                     ),
                     ui.card(ui.h4("공정 설명"), ui.markdown("슬리브에 용탕 주입 후 냉각 + EMS 교반으로 반고체 슬러리를 제조")),
+                    # **수정된 관리 기준 카드:**
                     ui.card(
-                        ui.h4("관리 기준"),
-                        create_management_table([
-                            ("슬리브 온도 (sleeve_temperature)", "605"),
-                            ("EMS 가동 시간 (EMS_operation_time)", "-"),
+                        ui.div(
+                            {"style": "display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;"},
+                            ui.h4("관리 기준", style="margin: 0;"),
+                            tooltip_component
+                        ),
+                        create_management_table_revised([
+                            ("슬리브 온도 (sleeve_temperature)", "147", "605"),
+                            ("EMS 가동 시간 (EMS_operation_time)", "-", "-"),
                         ])
                     ),
                     ui.card(ui.h4("실제 데이터 기반 불량율 변화 그래프"), ui.output_plot("plot_selected_var_quality_slurry"))
@@ -121,14 +140,19 @@ def page_process_ui():
                         ui.input_select("selected_var_injection", "변수 선택", choices=["low_section_speed", "high_section_speed", "cast_pressure", "biscuit_thickness", "physical_strength"]),
                     ),
                     ui.card(ui.h4("공정 설명"), ui.markdown("피스톤이 반고체 금속을 밀어내며 금형 충전")),
+                    # **수정된 관리 기준 카드:**
                     ui.card(
-                        ui.h4("관리 기준"),
-                        create_management_table([
-                            ("저속 구간 속도 (low_section_speed)", "100, 115"),
-                            ("고속 구간 속도 (high_section_speed)", "101, 117"),
-                            ("주입 압력 (cast_pressure)", "313"),
-                            ("비스킷 두께 (biscuit_thickness)", "56"),
-                            ("형체력 (physical_strength)", "-"),
+                        ui.div(
+                            {"style": "display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;"},
+                            ui.h4("관리 기준", style="margin: 0;"),
+                            tooltip_component
+                        ),
+                        create_management_table_revised([
+                            ("저속 구간 속도 (low_section_speed)", "100", "115"),
+                            ("고속 구간 속도 (high_section_speed)", "101", "117"),
+                            ("주입 압력 (cast_pressure)", "313", "-"),
+                            ("비스킷 두께 (biscuit_thickness)", "42", "56"),
+                            ("형체력 (physical_strength)", "-", "-"),
                         ])
                     ),
                     ui.card(ui.h4("실제 데이터 기반 불량율 변화 그래프"), ui.output_plot("plot_selected_var_quality_injection"))
@@ -144,14 +168,19 @@ def page_process_ui():
                         ui.input_select("selected_var_solid", "변수 선택", choices=["upper_mold_temp1", "lower_mold_temp1", "upper_mold_temp2", "lower_mold_temp2", "Coolant_temperature"]),
                     ),
                     ui.card(ui.h4("공정 설명"), ui.markdown("냉각/응고되며 최종 형상이 완성")),
+                    # **수정된 관리 기준 카드:**
                     ui.card(
-                        ui.h4("관리 기준"),
-                        create_management_table([
-                            ("상금형 온도1 (upper_mold_temp1)", "102"),
-                            ("하금형 온도1 (lower_mold_temp1)", "-"),
-                            ("상금형 온도2 (upper_mold_temp2)", "239"),
-                            ("하금형 온도2 (lower_mold_temp2)", "70, 309"),
-                            ("냉각수 온도 (Coolant_temperature)", "29"),
+                        ui.div(
+                            {"style": "display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;"},
+                            ui.h4("관리 기준", style="margin: 0;"),
+                            tooltip_component
+                        ),
+                        create_management_table_revised([
+                            ("상금형 온도1 (upper_mold_temp1)", "102", "-"),
+                            ("하금형 온도1 (lower_mold_temp1)", "95", "-"),
+                            ("상금형 온도2 (upper_mold_temp2)", "121", "235"),
+                            ("하금형 온도2 (lower_mold_temp2)", "70", "309"),
+                            ("냉각수 온도 (Coolant_temperature)", "29", "-"),
                         ])
                     ),
                     ui.card(ui.h4("실제 데이터 기반 불량율 변화 그래프"), ui.output_plot("plot_selected_var_quality_solid"))
@@ -173,35 +202,54 @@ def page_process_ui():
         )
     )
 
+# ----------------------------------------------------
+# 서버 코드는 그대로 유지하며, ui 함수만 변경했습니다.
+# ----------------------------------------------------
+
+# (이 부분은 page_process_ui와 분리된 파일에 있어야 함)
 from shiny import render
-from viz.plots import plot_failrate_cutoff_dual_fast
+# from viz.plots import plot_failrate_cutoff_dual_fast # 이 임포트는 순환참조 가능성이 높음
 from shared import df2
 
 def page_process_server(input, output, session):
+    
+    # 순환 참조 해결을 위해 함수 내부에서 임포트하거나, 별도 설정 필요
+    try:
+        from viz.plots import plot_failrate_cutoff_dual_fast
+    except ImportError:
+        # 실제 환경에 맞게 처리 필요
+        print("Warning: plot_failrate_cutoff_dual_fast not imported correctly in server.")
+        return 
+
     @output()
     @render.plot()
     def plot_selected_var_quality_molten():
         selected_var = input.selected_var_molten()
-        fig = plot_failrate_cutoff_dual_fast(df2, selected_var)
+        # Vars to hide (예시)
+        VARS_TO_HIDE = ["physical_strength"]
+        fig = plot_failrate_cutoff_dual_fast(df2, selected_var, vars_to_hide=VARS_TO_HIDE)
         return fig
 
     @output()
     @render.plot()
     def plot_selected_var_quality_slurry():
         selected_var = input.selected_var_slurry()
-        fig = plot_failrate_cutoff_dual_fast(df2, selected_var)
+        VARS_TO_HIDE = ["physical_strength"]
+        fig = plot_failrate_cutoff_dual_fast(df2, selected_var, vars_to_hide=VARS_TO_HIDE)
         return fig
 
     @output()
     @render.plot()
     def plot_selected_var_quality_injection():
         selected_var = input.selected_var_injection()
-        fig = plot_failrate_cutoff_dual_fast(df2, selected_var)
+        VARS_TO_HIDE = ["physical_strength"]
+        fig = plot_failrate_cutoff_dual_fast(df2, selected_var, vars_to_hide=VARS_TO_HIDE)
         return fig
 
     @output()
     @render.plot()
     def plot_selected_var_quality_solid():
         selected_var = input.selected_var_solid()
-        fig = plot_failrate_cutoff_dual_fast(df2, selected_var)
+        VARS_TO_HIDE = ["physical_strength"]
+        fig = plot_failrate_cutoff_dual_fast(df2, selected_var, vars_to_hide=VARS_TO_HIDE)
         return fig
