@@ -1,35 +1,69 @@
-import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib.pyplot as plt
 import pandas as pd
-from shared import df   # shared.py에서 df 불러오기
 
-def plot_molten_temp_vs_fail():
-    # 필요한 컬럼이 없을 경우 대비
-    if "molten_temp" not in df.columns or "passorfail" not in df.columns:
-        fig, ax = plt.subplots()
-        ax.text(0.5, 0.5, "데이터 없음", ha="center", va="center")
-        return fig
-
-    # 온도 구간 나누기
-    bins = np.linspace(df["molten_temp"].min(), df["molten_temp"].max(), 6)  # 5개 구간
-    df["temp_bin"] = pd.cut(df["molten_temp"], bins)
-
-    # 구간별 불량률 계산
-    fail_rate = df.groupby("temp_bin")["passorfail"].mean()
-
-    # 막대그래프 시각화
-    fig, ax = plt.subplots(figsize=(8, 5))
-    fail_rate.plot(kind="bar", color="skyblue", edgecolor="black", ax=ax)
-
-    # 기준선 표시
-    ax.axhline(0.05, color="red", linestyle="--", label="관리 기준선 (불량률 5%)")
-
-    ax.set_xlabel("용탕 온도 구간 (℃)")
-    ax.set_ylabel("불량률")
-    ax.set_title("용탕 온도 vs 불량률 (구간별)")
-    ax.legend()
-    plt.xticks(rotation=45, ha="right")
-
+def plot_failrate_cutoff_dual_fast(df, var, font_family='Malgun Gothic'):
+    plt.rcParams['font.family'] = font_family
+    plt.rcParams['axes.unicode_minus'] = False
+    col_vals = df[var].dropna()
+    min_val = int(col_vals.min())
+    median_val = int(col_vals.median())  # 중앙값 사용
+    max_val = int(col_vals.max())
+    # 중앙값~최소값 (내림차순)
+    thr_lower = np.arange(median_val, min_val - 1, -1)
+    # 중앙값~최대값 (오름차순)
+    thr_upper = np.arange(median_val, max_val + 1, 1)
+    failrates_lower = []
+    failrates_upper = []
+    for th in thr_lower:
+        group = df[df[var] <= th]
+        total = len(group)
+        if total == 0:
+            failrates_lower.append(np.nan)
+        else:
+            failrates_lower.append(group['passorfail'].value_counts(normalize=True).get(1, 0))
+    for th in thr_upper:
+        group = df[df[var] >= th]
+        total = len(group)
+        if total == 0:
+            failrates_upper.append(np.nan)
+        else:
+            failrates_upper.append(group['passorfail'].value_counts(normalize=True).get(1, 0))
+    # cut-off 탐지: 불량률 변화가 0.1 이상인 첫 번째 지점
+    cutoff_lower = None
+    for i in range(1, len(failrates_lower)):
+        if not np.isnan(failrates_lower[i-1]) and not np.isnan(failrates_lower[i]):
+            if abs(failrates_lower[i] - failrates_lower[i-1]) >= 0.1:
+                cutoff_lower = thr_lower[i-1]
+                break
+    cutoff_upper = None
+    for i in range(1, len(failrates_upper)):
+        if not np.isnan(failrates_upper[i-1]) and not np.isnan(failrates_upper[i]):
+            if abs(failrates_upper[i] - failrates_upper[i-1]) >= 0.1:
+                cutoff_upper = thr_upper[i-1]
+                break
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+    # 중앙값~최소값
+    axes[0].plot(thr_lower, failrates_lower, color='red', marker='o', label='불량률')
+    axes[0].set_title(f'{var}: 중앙→최소 cut-off')
+    axes[0].set_xlabel(f'{var} ≤ 임계값')
+    axes[0].set_ylabel('불량률')
+    axes[0].set_ylim(0, 1)
+    axes[0].legend()
+    axes[0].grid(True)
+    if cutoff_lower is not None:
+        axes[0].axvline(cutoff_lower, color='blue', linestyle='--', linewidth=2, label='cut-off')
+        axes[0].legend()
+    # 중앙값~최대값
+    axes[1].plot(thr_upper, failrates_upper, color='red', marker='o', label='불량률')
+    axes[1].set_title(f'{var}: 중앙→최대 cut-off')
+    axes[1].set_xlabel(f'{var} ≥ 임계값')
+    axes[1].set_ylabel('불량률')
+    axes[1].set_ylim(0, 1)
+    axes[1].legend()
+    axes[1].grid(True)
+    if cutoff_upper is not None:
+        axes[1].axvline(cutoff_upper, color='blue', linestyle='--', linewidth=2, label='cut-off')
+        axes[1].legend()
     plt.tight_layout()
-    
     return fig

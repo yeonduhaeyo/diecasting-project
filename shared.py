@@ -21,6 +21,9 @@ plt.rcParams['axes.unicode_minus'] = False
 # Data Load
 df = pd.read_csv(data_dir / "train.csv")
 
+# 이상치 제거 데이터
+df2 = pd.read_csv(data_dir / "outlier_remove_data2.csv")
+
 # Model Load
 model = joblib.load(models_dir / "final_model.joblib")
 
