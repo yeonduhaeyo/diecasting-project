@@ -1,9 +1,17 @@
+# viz/eda_plots.py — optimized & compact (색상 고정 매핑 반영)
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
+import numpy as np
 from pathlib import Path
 from matplotlib.dates import AutoDateLocator, DateFormatter
-from shared import df as DF_MAIN
+
+# Plotly (HTML로 렌더)
+import plotly.graph_objects as go
+import plotly.io as pio
+
+from functools import lru_cache
+import hashlib
 
 # ===== 사용자 설정 =====
 CAT_VARS = {"mold_code", "EMS_operation_time", "working", "passorfail", "tryshot_signal", "heating_furnace"}
@@ -11,12 +19,12 @@ EXCLUDE_VARS = {"weekday", "month", "name", "id", "line", "mold_name", "time", "
 NONE_LABEL = "선택 없음"
 
 # Heatmap 전용 제외/정렬
-HEATMAP_EXCLUDE = {"passorfail", "mold_code", "id", "line", "name", "date", "time", "weekday", "month", "day"}
+HEATMAP_EXCLUDE = {"passorfail", "mold_code", "EMS_operation_time", "id", "line", "name", "date", "time", "weekday", "month", "day"}
 HEATMAP_ORDER = [
     # ① 용탕 준비
     "molten_temp", "molten_volume",
     # ② 반고체 슬러리 제조
-    "sleeve_temperature", "EMS_operation_time",
+    "sleeve_temperature",
     # ③ 사출 & 금형 충전
     "low_section_speed", "high_section_speed", "cast_pressure",
     "biscuit_thickness", "physical_strength",
@@ -28,159 +36,135 @@ HEATMAP_ORDER = [
 
 # ===== 한글 라벨 로드 =====
 def _load_var_labels():
-    try:
-        p = Path(__file__).resolve().parents[1] / "data" / "var_labels.csv"
-        if p.exists():
-            df = pd.read_csv(p)
-            if {"col", "label"}.issubset(df.columns):
-                return {str(r["col"]): str(r["label"]) for _, r in df.dropna(subset=["col"]).iterrows()}
-    except Exception as e:
-        print("[eda_plots] var_labels load error:", e)
+    p = Path(__file__).resolve().parents[1] / "data" / "var_labels.csv"
+    if p.exists():
+        df = pd.read_csv(p)
+        if {"col", "label"}.issubset(df.columns):
+            return {str(r["col"]): str(r["label"]) for _, r in df.dropna(subset=["col"]).iterrows()}
     return {}
 VAR_LABELS = _load_var_labels()
-
 def k(col: str) -> str:
     return VAR_LABELS.get(col, col)
 
-# ===== 전처리 데이터 로드 =====
+# ===== 데이터 로드 공통 =====
 def _load_any(name_base: str):
-    """data/name_base(.parquet|.csv) 우선순위로 로드"""
+    """data/name_base(.parquet|.csv) 우선순위 로드"""
+    data_dir = Path(__file__).resolve().parents[1] / "data"
+    for name in (f"{name_base}.parquet", f"{name_base}.csv", name_base):
+        p = data_dir / name
+        if p.exists():
+            return pd.read_parquet(p) if p.suffix.lower()==".parquet" else pd.read_csv(p)
+    return None
+
+from shared import df as DF_MAIN
+DF_FIXED  = _load_any("fixeddata")    # 전처리 데이터(변수분포/히트맵)
+
+# ===== 공통 유틸 =====
+def _fig_msg(msg: str):
+    fig, ax = plt.subplots()
+    ax.text(0.5, 0.5, msg, ha="center", va="center")
+    ax.axis("off")
+    return fig
+
+def _has(df: pd.DataFrame, col: str) -> bool:
+    return (df is not None) and (col in df.columns) and (col not in EXCLUDE_VARS)
+
+def _is_num(df: pd.DataFrame, col: str) -> bool:
+    if col in CAT_VARS:
+        return False
     try:
-        data_dir = Path(__file__).resolve().parents[1] / "data"
-        for name in (f"{name_base}.parquet", f"{name_base}.csv", name_base):
-            p = data_dir / name
-            if p.exists():
-                return pd.read_parquet(p) if p.suffix.lower()==".parquet" else pd.read_csv(p)
-    except Exception as e:
-        print(f"[eda_plots] load error for {name_base}:", e)
-    return None
+        return pd.api.types.is_numeric_dtype(df[col])
+    except Exception:
+        return False
 
-DF_FIXED  = _load_any("fixeddata")    # (상관관계/변수분포 전처리용)
-DF_FIXED3 = _load_any("fixeddata3")   # (공정별 탐색 전용)
-
-# ===== 유틸 =====
-def _has(df, col): return (col in df.columns) and (col not in EXCLUDE_VARS)
-
-def _is_num(df, col):
-    if col in CAT_VARS: return False
-    try: return pd.api.types.is_numeric_dtype(df[col])
-    except: return False
-
-def _is_cat(df, col): return not _is_num(df, col)
-
-def detect_date_column(df):
-    for c in ("date","Date","DATE","datetime","timestamp","time"):
-        if c in df.columns: return c
-    for c in df.columns:
-        try:
-            if pd.api.types.is_datetime64_any_dtype(df[c]): return c
-        except: pass
-    return None
-
-def ensure_datetime_series(df, col):
-    s = df[col]
-    return s if pd.api.types.is_datetime64_any_dtype(s) else pd.to_datetime(s, errors="coerce", infer_datetime_format=True)
-
-# ---- passorfail 라벨 매핑(범례/축에 “합/불”로 보이도록) ----
+# pass/fail → 합/불
 _PF_MAP = {
     0: "합", 0.0: "합", "0": "합", "0.0": "합", "PASS": "합", "pass": "합", "Pass": "합",
     1: "불", 1.0: "불", "1": "불", "1.0": "불", "FAIL": "불", "fail": "불", "Fail": "불",
 }
-def _pf_series(df):
-    if "passorfail" not in df.columns:
-        return None
-    s = df["passorfail"]
-    try:
-        return s.map(lambda v: _PF_MAP.get(v, _PF_MAP.get(str(v), str(v))))
-    except Exception:
-        return s
+def _ensure_pf_hue(df: pd.DataFrame):
+    if (df is None) or ("passorfail" not in df.columns):
+        return df, None
+    df2 = df.copy()
+    df2["_pf_"] = df2["passorfail"].map(lambda v: _PF_MAP.get(v, _PF_MAP.get(str(v), str(v))))
+    return df2, "_pf_"
 
-def _apply_pf_legend(ax):
+def _legend_as_quality(ax):
     leg = ax.get_legend()
-    if leg is not None:
-        try:
-            leg.set_title("품질 결과")
-        except Exception:
-            pass
+    if leg:
+        leg.set_title("품질 결과")
 
 # ===== 변수 분포 / 산점도 / 박스플롯 =====
-def _plot_single(df, var):
-    if (df is None) or (not _has(df, var)):
-        fig, ax = plt.subplots(); ax.text(0.5,0.5,"데이터 없음",ha="center",va="center"); ax.axis("off"); return fig
-    local = df.copy()
+def _plot_single(df: pd.DataFrame, var: str):
+    if not _has(df, var):
+        return _fig_msg("데이터 없음")
+    local, hue = _ensure_pf_hue(df)
     fig, ax = plt.subplots(figsize=(6,4))
-    if "passorfail" in local.columns:
-        local["_pf_"] = _pf_series(local)
-        hue = "_pf_"
-    else:
-        hue = None
-
     if _is_num(local, var):
-        sns.histplot(data=local, x=var, hue=hue, multiple="stack", kde=False, ax=ax); ax.set_ylabel("빈도")
+        sns.histplot(data=local, x=var, hue=hue, multiple="stack", kde=False, ax=ax)
+        ax.set_ylabel("빈도")
     else:
         order = local[var].value_counts(dropna=False).index.tolist()
-        sns.countplot(data=local, x=var, order=order, hue=hue, ax=ax); ax.set_ylabel("건수")
+        sns.countplot(data=local, x=var, order=order, hue=hue, ax=ax)
+        ax.set_ylabel("건수")
         ax.set_xticklabels([k(t.get_text()) for t in ax.get_xticklabels()], rotation=20, ha="right")
     ax.set_title(f"{k(var)} 분포" + (" (품질 결과)" if hue else ""))
     ax.set_xlabel(k(var))
-    _apply_pf_legend(ax)
-    plt.tight_layout(); return fig
+    _legend_as_quality(ax)
+    plt.tight_layout()
+    return fig
 
-def _plot_scatter(df, xcol, ycol):
-    if (df is None) or (not (_has(df,xcol) and _has(df,ycol))):
-        fig, ax = plt.subplots(); ax.text(0.5,0.5,"데이터 없음",ha="center",va="center"); ax.axis("off"); return fig
-    if not (_is_num(df,xcol) and _is_num(df,ycol)):
-        fig, ax = plt.subplots(); ax.text(0.5,0.5,"산점도는 수치형 2개 필요",ha="center",va="center"); ax.axis("off"); return fig
-    local = df.copy()
+def _plot_scatter(df: pd.DataFrame, xcol: str, ycol: str):
+    if not (_has(df, xcol) and _has(df, ycol)):
+        return _fig_msg("데이터 없음")
+    if not (_is_num(df, xcol) and _is_num(df, ycol)):
+        return _fig_msg("산점도는 수치형 2개 필요")
+    local, hue = _ensure_pf_hue(df)
     fig, ax = plt.subplots(figsize=(6,4))
-    hue = None
-    if "passorfail" in local.columns:
-        local["_pf_"] = _pf_series(local); hue = "_pf_"
     sns.scatterplot(data=local, x=xcol, y=ycol, hue=hue, s=20, alpha=0.7, ax=ax)
     ax.set_title(f"{k(xcol)} vs {k(ycol)}" + (" (품질 결과)" if hue else ""))
     ax.set_xlabel(k(xcol)); ax.set_ylabel(k(ycol))
-    _apply_pf_legend(ax)
-    plt.tight_layout(); return fig
+    _legend_as_quality(ax)
+    plt.tight_layout()
+    return fig
 
-def _plot_box_by_cat(df, num_col, cat_col):
-    if (df is None) or (not (_has(df,num_col) and _has(df,cat_col))):
-        fig, ax = plt.subplots(); ax.text(0.5,0.5,"데이터 없음",ha="center",va="center"); ax.axis("off"); return fig
-    if not (_is_num(df,num_col) and _is_cat(df,cat_col)):
-        fig, ax = plt.subplots(); ax.text(0.5,0.5,"박스플롯은 수치×범주 필요",ha="center",va="center"); ax.axis("off"); return fig
-
+def _plot_box_by_cat(df: pd.DataFrame, num_col: str, cat_col: str):
+    if not (_has(df, num_col) and _has(df, cat_col)):
+        return _fig_msg("데이터 없음")
+    if not (_is_num(df, num_col) and not _is_num(df, cat_col)):
+        return _fig_msg("박스플롯은 수치×범주 필요")
     local = df.copy()
-    x = cat_col
-    order = None
+    x = cat_col; order = None
     if cat_col == "passorfail":
-        local["_pf_"] = _pf_series(local)
-        x = "_pf_"
-        order = ["합", "불"]
-
+        local, _ = _ensure_pf_hue(local)
+        x = "_pf_"; order = ["합", "불"]
     fig, ax = plt.subplots(figsize=(7,5))
     sns.boxplot(data=local, x=x, y=num_col, order=order, ax=ax)
     xlabel = "품질 결과" if cat_col == "passorfail" else k(cat_col)
     ax.set_title(f"{xlabel}별 {k(num_col)} 분포")
     ax.set_xlabel(xlabel); ax.set_ylabel(k(num_col))
     ax.set_xticklabels([k(t.get_text()) for t in ax.get_xticklabels()], rotation=15, ha="right")
-    plt.tight_layout(); return fig
+    plt.tight_layout()
+    return fig
 
-def _plot_varpair_or_dist_df(df, var1, var2):
-    if (not var1) or (var1==NONE_LABEL) or (not var2) or (var2==NONE_LABEL):
-        target = var1 if var1 and var1!=NONE_LABEL else var2
-        if not target or target==NONE_LABEL:
-            fig, ax = plt.subplots(); ax.text(0.5,0.5,"변수를 선택하세요.",ha="center",va="center"); ax.axis("off"); return fig
-        return _plot_single(df, target)
-    a, b = var1, var2
-    if _is_num(df,a) and _is_num(df,b): return _plot_scatter(df,a,b)
-    if _is_num(df,a) and _is_cat(df,b): return _plot_box_by_cat(df, num_col=a, cat_col=b)
-    if _is_cat(df,a) and _is_num(df,b): return _plot_box_by_cat(df, num_col=b, cat_col=a)
-    fig, ax = plt.subplots(); ax.text(0.5,0.5,"범주×범주 조합은 미지원",ha="center",va="center"); ax.axis("off"); return fig
+def _plot_varpair_or_dist_df(df: pd.DataFrame, var1: str, var2: str):
+    if (not var1) or (var1 == NONE_LABEL) or (not var2) or (var2 == NONE_LABEL):
+        target = var1 if var1 and var1 != NONE_LABEL else var2
+        return _plot_single(df, target) if target and target != NONE_LABEL else _fig_msg("변수를 선택하세요.")
+    if _is_num(df, var1) and _is_num(df, var2):
+        return _plot_scatter(df, var1, var2)
+    if _is_num(df, var1) and not _is_num(df, var2):
+        return _plot_box_by_cat(df, num_col=var1, cat_col=var2)
+    if not _is_num(df, var1) and _is_num(df, var2):
+        return _plot_box_by_cat(df, num_col=var2, cat_col=var1)
+    return _fig_msg("범주×범주 조합은 미지원")
 
-def plot_varpair_or_dist_main(var1, var2): return _plot_varpair_or_dist_df(DF_MAIN, var1, var2)
+def plot_varpair_or_dist_main(var1, var2):
+    return _plot_varpair_or_dist_df(DF_MAIN, var1, var2)
 
 def plot_varpair_or_dist_fixed(var1, var2):
     if DF_FIXED is None:
-        fig, ax = plt.subplots(); ax.text(0.5,0.5,"전처리 데이터 없음",ha="center",va="center"); ax.axis("off"); return fig
+        return _fig_msg("전처리 데이터 없음")
     return _plot_varpair_or_dist_df(DF_FIXED, var1, var2)
 
 # ===== Heatmap =====
@@ -192,127 +176,219 @@ def _apply_heatmap_order(cols):
 def get_fixed_numeric_cols():
     if DF_FIXED is None:
         return []
-    cols = []
-    for c in DF_FIXED.columns:
-        if c in HEATMAP_EXCLUDE:
-            continue
-        try:
-            if pd.api.types.is_numeric_dtype(DF_FIXED[c]):
-                cols.append(c)
-        except Exception:
-            pass
-    return cols
+    return [c for c in DF_FIXED.columns
+            if (c not in HEATMAP_EXCLUDE) and pd.api.types.is_numeric_dtype(DF_FIXED[c])]
 
 def plot_corr_heatmap_fixed_subset(selected_cols):
     if DF_FIXED is None:
-        fig, ax = plt.subplots(); ax.text(0.5,0.5,"전처리 데이터(fixeddata)를 찾을 수 없습니다.",ha="center",va="center"); ax.axis("off"); return fig
+        return _fig_msg("전처리 데이터(fixeddata)를 찾을 수 없습니다.")
     if not selected_cols:
-        fig, ax = plt.subplots(); ax.text(0.5,0.5,"왼쪽에서 변수를 선택하고 HIT을 누르세요.",ha="center",va="center"); ax.axis("off"); return fig
-
-    valid = []
-    for c in selected_cols:
-        if c in DF_FIXED.columns and c not in HEATMAP_EXCLUDE:
-            try:
-                if pd.api.types.is_numeric_dtype(DF_FIXED[c]):
-                    valid.append(c)
-            except Exception:
-                pass
+        return _fig_msg("왼쪽 체크에서 변수를 선택하고 HIT을 누르세요.")
+    valid = [c for c in selected_cols
+             if c in DF_FIXED.columns
+             and (c not in HEATMAP_EXCLUDE)
+             and pd.api.types.is_numeric_dtype(DF_FIXED[c])]
     valid = list(dict.fromkeys(valid))
     if len(valid) < 2:
-        fig, ax = plt.subplots(); ax.text(0.5,0.5,"상관관계는 최소 2개 이상의 수치형 변수가 필요합니다.",ha="center",va="center"); ax.axis("off"); return fig
-
+        return _fig_msg("상관관계는 최소 2개 이상의 수치형 변수가 필요합니다.")
     cols = _apply_heatmap_order(valid)
-    corr = DF_FIXED[cols].corr(numeric_only=True)
-    corr = corr.rename(index=k, columns=k)
-
+    corr = DF_FIXED[cols].corr(numeric_only=True).rename(index=k, columns=k)
     n = len(cols)
-    w = max(6, min(1 + 0.6 * n, 18))
-    h = max(5, min(0.5 * n + 4, 18))
-
-    fig, ax = plt.subplots(figsize=(w, h))
-    sns.heatmap(corr, annot=True, fmt=".2f", cmap="RdBu_r", center=0, ax=ax)
-    ax.set_title("상관관계 Heatmap (전처리 데이터 - 선택 변수)")
+    fig, ax = plt.subplots(figsize=(max(6, 1 + 0.5*n), max(5, 0.45*n + 3)))
+    annot = n <= 18
+    sns.heatmap(corr, annot=annot, fmt=".2f", cmap="RdBu_r", center=0, ax=ax)
+    ax.set_title("상관관계 Heatmap")
+    ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right")
+    ax.set_yticklabels(ax.get_yticklabels(), rotation=0)
     plt.tight_layout()
     return fig
 
-# ===== 공정별 탐색 (fixeddata3 전용) =====
-def _prep_ts_from_fixed3(start_date, end_date):
-    if DF_FIXED3 is None:
+# ===== (여기부터) 금형코드 색상 고정 매핑 =====
+MOLD_CODE_COLOR_MAP: dict[str, str] = {
+    "8722": "#2ca02c",  # green
+    "8573": "#9467bd",  # purple
+    "8412": "#1f77b4",  # blue
+    "8917": "#d62728",  # red
+    "8600": "#17becf",  # teal
+}
+_FALLBACK_COLORS = [
+    "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#ff7f0e",
+    "#aec7e8", "#98df8a", "#ff9896", "#c5b0d5", "#c49c94",
+]
+def _color_for_code(code_label: str) -> str:
+    key = str(code_label)
+    if key in MOLD_CODE_COLOR_MAP:
+        return MOLD_CODE_COLOR_MAP[key]
+    h = int(hashlib.sha256(key.encode("utf-8")).hexdigest(), 16)
+    return _FALLBACK_COLORS[h % len(_FALLBACK_COLORS)]
+
+# ===== fixeddata3: 경량 로더 & Plotly HTML 시계열 =====
+_FIXED3_BASE_COLS = ["mold_code", "date", "time_hour", "time_minute"]
+
+def _fixed3_path():
+    data_dir = Path(__file__).resolve().parents[1] / "data"
+    for name in ("fixeddata3.parquet","fixeddata3.csv","fixeddata3"):
+        p = data_dir / name
+        if p.exists():
+            return p
+    return None
+
+@lru_cache(maxsize=16)
+def _load_fixed3_light(tuple_cols: tuple[str, ...]) -> pd.DataFrame | None:
+    """fixeddata3에서 필요한 열만 로드 + dtype 최적화 + _t_ 생성 (캐시)"""
+    p = _fixed3_path()
+    if p is None:
         return None
-    dcol = detect_date_column(DF_FIXED3) or "date"
-    if dcol not in DF_FIXED3.columns:
+    cols = list(dict.fromkeys(list(tuple_cols)))
+    for c in _FIXED3_BASE_COLS:
+        if c not in cols:
+            cols.append(c)
+    try:
+        if p.suffix.lower() == ".parquet":
+            df = pd.read_parquet(p, columns=cols)
+        else:
+            df = pd.read_csv(p, usecols=[c for c in cols if c != "_t_"])
+    except Exception as e:
+        print("[load_fixed3_light] read error:", e)
         return None
 
-    tmp = DF_FIXED3.copy()
-    date_s = pd.to_datetime(tmp[dcol], errors="coerce", infer_datetime_format=True).dt.normalize()
-    h = pd.to_numeric(tmp.get("time_hour", 0), errors="coerce").fillna(0).astype(int).clip(0, 23)
-    m = pd.to_numeric(tmp.get("time_minute", 0), errors="coerce").fillna(0).astype(int).clip(0, 59)
+    if "mold_code" in df.columns:
+        df["mold_code"] = df["mold_code"].astype("category")
 
-    tmp["_t_"] = date_s + pd.to_timedelta(h, unit="h") + pd.to_timedelta(m, unit="m")
-    tmp = tmp.dropna(subset=["_t_"])
-
-    if start_date: tmp = tmp[tmp["_t_"] >= pd.to_datetime(start_date)]
-    if end_date:   tmp = tmp[tmp["_t_"] <= pd.to_datetime(end_date)]
-
-    return tmp
+    if "_t_" not in df.columns:
+        if "date" not in df.columns:
+            return None
+        date_s = pd.to_datetime(df["date"], errors="coerce").dt.normalize()
+        h = pd.to_numeric(df.get("time_hour", 0), errors="coerce").fillna(0).clip(0,23).astype("int16")
+        m = pd.to_numeric(df.get("time_minute", 0), errors="coerce").fillna(0).clip(0,59).astype("int16")
+        df["_t_"] = date_s + pd.to_timedelta(h, unit="h") + pd.to_timedelta(m, unit="min")
+    return df
 
 def get_mold_code_levels():
-    if DF_FIXED3 is None or "mold_code" not in DF_FIXED3.columns:
+    """UI 체크리스트용: fixeddata3의 고유 mold_code 문자열 레벨"""
+    df = _load_fixed3_light(tuple())
+    if df is None or "mold_code" not in df.columns:
         return []
-    vals = pd.unique(DF_FIXED3["mold_code"].astype(str).fillna("")).tolist()
-    vals = [v for v in vals if v != ""]
-    return sorted(vals)
+    vals = pd.unique(df["mold_code"].astype(str).fillna("")).tolist()
+    return sorted([v for v in vals if v])
 
-def plot_timeseries_fixed3_by_codes(y_var: str, codes: list, start_date=None, end_date=None):
-    tmp = _prep_ts_from_fixed3(start_date, end_date)
-    if tmp is None or tmp.empty:
-        fig, ax = plt.subplots(); ax.text(0.5,0.5,"fixeddata3에서 시간 축을 만들 수 없습니다.",ha="center",va="center"); ax.axis("off"); return fig
+def plot_timeseries_fixed3_plotly_html(yvar: str, codes, start_date=None, end_date=None) -> str:
+    """
+    단일 y변수 / mold_code별 '실선만' 표시
+    - 리샘플/보간 없음: 있는 데이터만 시간순으로 연결
+    - 간격이 1시간을 초과하면 선을 '끊어서' 공백으로 보이게 (세그먼트 분할)
+    - rangeslider + rangeselector + ALL(reset) 버튼
+    반환: Plotly HTML (Shiny @render.ui + ui.HTML 로 렌더)
+    """
+    import pandas as pd
 
-    if y_var not in tmp.columns:
-        fig, ax = plt.subplots(); ax.text(0.5,0.5,"선택한 변수가 존재하지 않습니다.",ha="center",va="center"); ax.axis("off"); return fig
-    tmp[y_var] = pd.to_numeric(tmp[y_var], errors="coerce")
+    fig = go.Figure()
+    if not yvar:
+        fig.add_annotation(text="세부 변수를 선택하세요.", xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False)
+        return pio.to_html(fig, include_plotlyjs="cdn", full_html=False)
 
-    hue = None
-    if "mold_code" in tmp.columns:
-        tmp["mold_code"] = tmp["mold_code"].astype(str)
-        if codes:
-            tmp = tmp[tmp["mold_code"].isin([str(c) for c in codes])]
-        hue = "mold_code"
+    # 필요한 열만 로드 (_t_ 포함)
+    df = _load_fixed3_light((yvar,))
+    if df is None or df.empty:
+        fig.add_annotation(text="fixeddata3를 읽을 수 없습니다.", xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False)
+        return pio.to_html(fig, include_plotlyjs="cdn", full_html=False)
 
-    if "_t_" not in tmp.columns:
-        fig, ax = plt.subplots(); ax.text(0.5,0.5,"시간 축(_t_)을 만들 수 없습니다.",ha="center",va="center"); ax.axis("off"); return fig
-    tmp = tmp.set_index("_t_")
+    # 날짜 범위: 하루만 선택되면 [00:00, 다음날 00:00)로 확장
+    start_ts = pd.to_datetime(start_date) if start_date else None
+    end_ts   = pd.to_datetime(end_date) if end_date else None
+    if start_ts is not None and end_ts is not None and start_ts.normalize() == end_ts.normalize():
+        end_ts = end_ts + pd.Timedelta(days=1)
 
-    import numpy as np
-    s = tmp[y_var].copy()
-    if np.isfinite(s).sum() == 0:
-        fig, ax = plt.subplots(); ax.text(0.5,0.5,"선택한 변수에 유효한 숫자 데이터가 없습니다.",ha="center",va="center"); ax.axis("off"); return fig
+    # 기간 필터
+    if start_ts is not None:
+        df = df[df["_t_"] >= start_ts]
+    if end_ts is not None:
+        df = df[df["_t_"] <= end_ts]
+    if df.empty:
+        fig.add_annotation(text="선택한 기간에 데이터가 없습니다.", xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False)
+        return pio.to_html(fig, include_plotlyjs="cdn", full_html=False)
 
-    if hue:
-        frames = []
-        for code, g in tmp.groupby(hue):
-            ser = pd.to_numeric(g[y_var], errors="coerce")
-            rs = ser.resample("T").mean()
-            df_rs = rs.to_frame(name=y_var).reset_index()
-            df_rs[hue] = code
-            frames.append(df_rs)
-        plot_df = pd.concat(frames, ignore_index=True)
+    # mold_code 필터
+    if "mold_code" in df.columns and codes:
+        codes = [str(c) for c in codes]
+        df["mold_code"] = df["mold_code"].astype(str)
+        df = df[df["mold_code"].isin(codes)]
+    if df.empty:
+        fig.add_annotation(text="선택한 mold_code에 데이터가 없습니다.", xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False)
+        return pio.to_html(fig, include_plotlyjs="cdn", full_html=False)
+
+    # y 숫자화 & 결측 제거
+    df[yvar] = pd.to_numeric(df[yvar], errors="coerce")
+    df = df.dropna(subset=[yvar, "_t_"])
+
+    GAP = pd.Timedelta(hours=1)
+
+    def _add_segments_for_group(g: pd.DataFrame, code_label: str):
+        g = g.sort_values("_t_").reset_index(drop=True)
+        ts = pd.to_datetime(g["_t_"])
+        ys = pd.to_numeric(g[yvar], errors="coerce")
+
+        col = _color_for_code(str(code_label))  # 고정 색상
+
+        cut = ts.diff() > GAP
+        starts = [0] + cut[cut].index.tolist()
+        ends = starts[1:] + [len(g)]
+
+        first = True
+        for s, e in zip(starts, ends):
+            seg_x = ts.iloc[s:e]
+            seg_y = ys.iloc[s:e]
+            if seg_x.size < 1:
+                continue
+
+            # ⚠️ f-string + Plotly placeholder 혼용 금지 → 문자열 연결로 처리
+            hovertemplate = (
+                (f"금형코드: {code_label}<br>" if code_label else "") +
+                "날짜/시간: %{x|%Y-%m-%d %H:%M}<br>" +       # 일반 문자열
+                f"{k(yvar)}: " + "%{y:.3g}<extra></extra>"   # 일반 문자열과 f-string을 분리
+            )
+
+            fig.add_trace(
+                go.Scatter(
+                    x=seg_x,
+                    y=seg_y,
+                    mode="lines",
+                    name=str(code_label),
+                    legendgroup=str(code_label),
+                    showlegend=first,
+                    line=dict(color=col, width=2),
+                    hovertemplate=hovertemplate,
+                    connectgaps=False,
+                )
+            )
+            first = False
+
+    if "mold_code" in df.columns:
+        for code, g in df.groupby("mold_code", sort=False):
+            _add_segments_for_group(g, code)
     else:
-        rs = s.resample("T").mean()
-        plot_df = rs.to_frame(name=y_var).reset_index()
+        _add_segments_for_group(df, k(yvar))
 
-    fig, ax = plt.subplots(figsize=(11, 5))
-    if hue:
-        sns.lineplot(data=plot_df, x="_t_", y=y_var, hue=hue, ax=ax)
-        leg = ax.legend(loc="upper left", bbox_to_anchor=(0.0, 1.02), frameon=True)
-        if leg: leg.set_title("mold_code")
-    else:
-        sns.lineplot(data=plot_df, x="_t_", y=y_var, ax=ax)
-
-    ax.set_title(f"{k(y_var)} 시계열 그래프")
-    ax.set_xlabel("날짜/시간"); ax.set_ylabel(k(y_var))
-    ax.tick_params(axis="x", labelsize=8); ax.tick_params(axis="y", labelsize=9)
-    ax.xaxis.set_major_locator(AutoDateLocator(minticks=5, maxticks=12))
-    ax.xaxis.set_major_formatter(DateFormatter("%m-%d %H:%M"))
-    plt.tight_layout()
-    return fig
+    fig.update_layout(
+        margin=dict(l=50, r=50, t=60, b=60),
+        legend=dict(title="금형코드"),
+        title=f"{k(yvar)} 시계열 탐색",
+        xaxis=dict(
+            title="날짜/시간",
+            rangeselector=dict(
+                buttons=[
+                    dict(count=30, step="minute", stepmode="backward", label="30m"),
+                    dict(count=1,  step="hour",   stepmode="backward", label="1h"),
+                    dict(count=6,  step="hour",   stepmode="backward", label="6h"),
+                    dict(count=12, step="hour",   stepmode="backward", label="12h"),
+                    dict(count=1,  step="day",    stepmode="backward", label="1d"),
+                    dict(step="all", label="ALL"),
+                ]
+            ),
+            rangeslider=dict(visible=True),
+            type="date",
+        ),
+        yaxis=dict(title=k(yvar), autorange=True, rangemode="normal"),
+        template="plotly_white",
+    )
+    return pio.to_html(fig, include_plotlyjs="cdn", full_html=False)
