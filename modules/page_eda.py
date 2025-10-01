@@ -38,20 +38,6 @@ def _fixed3_path():
             return p
     return None
 
-def _detect_date_col(df: pd.DataFrame):
-    for c in ("date","Date","DATE","datetime","timestamp","time"):
-        if c in df.columns: return c
-    for c in df.columns:
-        try:
-            if pd.api.types.is_datetime64_any_dtype(df[c]): return c
-        except: pass
-    for c in df.columns:
-        try:
-            s = pd.to_datetime(df[c], errors="coerce")
-            if s.notna().sum() > 0: return c
-        except: pass
-    return None
-
 def _load_fixed3_date_range():
     """fixeddata3의 최소~최대 날짜(YYYY-MM-DD)"""
     try:
@@ -136,8 +122,30 @@ FIXED3_ALLOWED = {
     "기타": ["production_no","machine_cycle_time","product_cycle_time"],
 }
 
+def _fixed3_columns_view():
+    p = _fixed3_path()
+    if p is None:
+        return None
+    try:
+        if p.suffix.lower() == ".parquet":
+            import pyarrow.parquet as pq
+            schema = pq.ParquetFile(str(p)).schema_arrow
+            cols = [n for n in schema.names]
+            return type("ColsOnly", (), {"columns": cols})()
+        else:
+            import csv
+            with open(p, "r", encoding="utf-8") as f:
+                reader = csv.reader(f)
+                header = next(reader)
+            return type("ColsOnly", (), {"columns": header})()
+    except Exception:
+        if p.suffix.lower() == ".parquet":
+            df = pd.read_parquet(p, nrows=1)
+        else:
+            df = pd.read_csv(p, nrows=1)
+        return type("ColsOnly", (), {"columns": list(df.columns)})()
+
 def _selectize_grouped_by_process_fixed3_whitelist(id_, label, df_fixed3_like_has_cols, add_none=False):
-    """df_fixed3_like_has_cols는 columns 속성만 있으면 됩니다(실제 데이터 필요 X)."""
     if df_fixed3_like_has_cols is None:
         return ui.p("fixeddata3를 찾을 수 없습니다.")
     cols_exist = set(df_fixed3_like_has_cols.columns)
@@ -165,45 +173,6 @@ def _selectize_grouped_by_process_fixed3_whitelist(id_, label, df_fixed3_like_ha
         },
     )
 
-# ── “상관관계-전체선택” 토글에 쓰는 그룹→컬럼 도우미 ─────────────
-def _heat_group_map():
-    num_cols = set(get_fixed_numeric_cols())
-    groups = {}
-    used = set()
-    for g, cols in PROCESS_VARS.items():
-        arr = [c for c in cols if c in num_cols]
-        groups[g] = arr
-        used.update(arr)
-    misc = sorted([c for c in num_cols if c not in used])
-    groups["기타"] = misc
-    return groups
-
-# ── fixeddata3의 “사용 가능 컬럼 목록”만 얻는 얇은 객체 ──────────
-def _fixed3_columns_view():
-    p = _fixed3_path()
-    if p is None:
-        return None
-    try:
-        if p.suffix.lower() == ".parquet":
-            import pyarrow.parquet as pq
-            schema = pq.ParquetFile(str(p)).schema_arrow
-            cols = [n for n in schema.names]
-            return type("ColsOnly", (), {"columns": cols})()
-        else:
-            # CSV 헤더만
-            import csv
-            with open(p, "r", encoding="utf-8") as f:
-                reader = csv.reader(f)
-                header = next(reader)
-            return type("ColsOnly", (), {"columns": header})()
-    except Exception:
-        # fallback: 가볍게 전체 로드 후 columns만
-        if p.suffix.lower() == ".parquet":
-            df = pd.read_parquet(p, nrows=1)
-        else:
-            df = pd.read_csv(p, nrows=1)
-        return type("ColsOnly", (), {"columns": list(df.columns)})()
-
 # ── UI ───────────────────────────────────────────────────────
 def page_eda_ui():
     return ui.page_fluid(
@@ -213,6 +182,11 @@ def page_eda_ui():
             .heatgrp { margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px dashed #e5e7eb; }
             .heatgrp h6 { margin: 6px 0 14px; }
             .heatgrp .form-check { margin-bottom: 2px; }
+
+            .centerwide { width: 95vw; max-width: 1500px; margin: 0 auto; }
+            .centerwide .card { width: 100%; }
+
+            .container-fluid { padding-left: 10px !important; padding-right: 10px !important; }
 
             .mini-guide { position: relative; display: inline-block; margin-top: 6px; margin-right: 8px; }
             .mini-guide .badge { display: inline-block; padding: 3px 7px; border-radius: 8px;
@@ -230,28 +204,22 @@ def page_eda_ui():
         ui.navset_tab(
             # 1) 변수 분포
             ui.nav_panel(
-                "변수 분포",
+                "데이터 탐색",
                 ui.layout_sidebar(
                     ui.sidebar(
                         ui.input_radio_buttons(
                             "dist_mode", "보기 모드",
-                            choices={"compare": "분포 비교하기","main": "원본 데이터","fixed": "전처리 데이터"},
+                            choices={"compare": "데이터 비교하기","main": "원본 데이터","fixed": "전처리 데이터"},
                             selected="compare", inline=True
                         ),
                         ui.output_ui("dist_selectors"),
                         ui.output_ui("simple_guides"),
                     ),
-                    ui.layout_columns(
-                        ui.card(ui.card_header("원본 데이터 그래프"),
-                                ui.output_plot("dist_plot_primary", width="100%", height="520px")),
-                        ui.card(ui.card_header("전처리 데이터 그래프"),
-                                ui.output_plot("dist_plot_secondary", width="100%", height="520px")),
-                        col_widths=(6, 6),
-                    ),
+                    ui.output_ui("dist_plot_area"),
                 ),
             ),
 
-            # 2) 상관관계 (전처리 only + 초기 자동표시 + HIT으로만 갱신)
+            # 2) 상관관계
             ui.nav_panel(
                 "상관관계",
                 ui.layout_sidebar(
@@ -260,7 +228,7 @@ def page_eda_ui():
                         ui.input_checkbox("heat_select_all", "전체 선택", value=True),
                         ui.div(ui.output_ui("heat_var_groups"), class_="heatwrap"),
                         ui.input_action_button("heat_go", "HIT", class_="btn btn-primary"),
-                        ui.help_text("원하는 변수 체크 변경 후 HIT을 눌러 갱신하세요."),
+                        ui.help_text("처음에는 전체 변수를 표시합니다. 이후엔 체크 변경 후 HIT을 눌러 갱신하세요."),
                     ),
                     ui.card(
                         ui.card_header("상관관계 Heatmap"),
@@ -269,14 +237,14 @@ def page_eda_ui():
                 ),
             ),
 
-            # 3) 공정별 시계열 탐색 (fixeddata3 + Plotly HTML)
+            # 3) 공정별 시계열 탐색
             ui.nav_panel(
                 "공정별 시계열 탐색",
                 ui.layout_sidebar(
                     ui.sidebar(
                         ui.output_ui("mold_code_selector"),
                         ui.hr(),
-                        ui.output_ui("fixed3_var_selector"),  # 단일 선택 (optgroup)
+                        ui.output_ui("fixed3_var_selector"),
                         ui.input_date_range("proc_date_range", "날짜 범위", start=DR3_START, end=DR3_END),
                         ui.help_text("선택한 금형 코드를 색으로 구분해 시계열을 표시합니다."),
                     ),
@@ -317,6 +285,46 @@ def page_eda_server(input, output, session):
                 _selectize_grouped_by_process("dist_var2", "변수 선택 2", DF_FIXED, add_none=True),
             )
 
+    # ---- 변수 분포: 그래프 영역
+    @output
+    @render.ui
+    def dist_plot_area():
+        mode = input.dist_mode()
+        if mode == "compare":
+            return ui.layout_columns(
+                ui.card(
+                    ui.card_header("원본 데이터 그래프"),
+                    ui.output_plot("dist_plot_primary", width="100%", height="700px"),
+                ),
+                ui.card(
+                    ui.card_header("전처리 데이터 그래프"),
+                    ui.output_plot("dist_plot_secondary", width="100%", height="700px"),
+                ),
+                col_widths=(6, 6),
+            )
+        elif mode == "main":
+            return ui.layout_columns(
+                ui.div(
+                    ui.card(
+                        ui.card_header("원본 데이터 그래프"),
+                        ui.output_plot("dist_plot_main_single", width="90%", height="700px"),
+                    ),
+                    class_="centerwide",
+                ),
+                col_widths=(10,),
+            )
+        else:
+            return ui.layout_columns(
+                ui.div(
+                    ui.card(
+                        ui.card_header("전처리 데이터 그래프"),
+                        ui.output_plot("dist_plot_fixed_single", width="90%", height="700px"),
+                    ),
+                    class_="centerwide",
+                ),
+                col_widths=(10,),
+            )
+
     # ---- 간단 가이드(변수 구분 + 사용법)
     @output
     @render.ui
@@ -355,31 +363,23 @@ def page_eda_server(input, output, session):
             <div class="mini-guide" aria-label="사용법">
               <span class="badge">사용법</span>
               <div class="panel">
-                <p style="margin:0;">변수 &amp; 선택 없음 
-                : 분포 그래프</p>
-                <p style="margin:6px 0 0;">수치형 &amp; 범주형 
-                : 박스 플롯</p>
-                <p style="margin:6px 0 0;">수치형 &amp; 수치형 
-                : 산점도 분포 그래프</p>
+                <p style="margin:0;">변수 &amp; 선택 없음 : 분포 그래프</p>
+                <p style="margin:6px 0 0;">수치형 &amp; 범주형 : 박스 플롯</p>
+                <p style="margin:6px 0 0;">수치형 &amp; 수치형 : 산점도 분포 그래프</p>
               </div>
             </div>
           </div>
         """)
 
-    # ---- 변수 분포: 플롯
+    # ---- 비교 모드 좌/우 그래프
     @output
     @render.plot
     def dist_plot_primary():
         mode = input.dist_mode(); v1 = input.dist_var1(); v2 = input.dist_var2()
-        if mode == "main":
+        if mode in ("compare", "main"):
             return plot_varpair_or_dist_main(v1, v2)
-        elif mode == "fixed":
-            import matplotlib.pyplot as plt
-            fig, ax = plt.subplots(); ax.axis("off")
-            ax.text(0.5,0.5,"전처리 모드에서는 오른쪽 그래프만 사용합니다.",ha="center",va="center")
-            return fig
-        else:
-            return plot_varpair_or_dist_main(v1, v2)
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots(); ax.axis("off"); return fig
 
     @output
     @render.plot
@@ -387,11 +387,21 @@ def page_eda_server(input, output, session):
         mode = input.dist_mode(); v1 = input.dist_var1(); v2 = input.dist_var2()
         if mode in ("compare","fixed"):
             return plot_varpair_or_dist_fixed(v1, v2)
-        else:
-            import matplotlib.pyplot as plt
-            fig, ax = plt.subplots(); ax.axis("off")
-            ax.text(0.5,0.5,"원본 모드에서는 왼쪽 그래프만 사용합니다.",ha="center",va="center")
-            return fig
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots(); ax.axis("off"); return fig
+
+    # ---- 단일(원본/전처리) 그래프
+    @output
+    @render.plot
+    def dist_plot_main_single():
+        v1 = input.dist_var1(); v2 = input.dist_var2()
+        return plot_varpair_or_dist_main(v1, v2)
+
+    @output
+    @render.plot
+    def dist_plot_fixed_single():
+        v1 = input.dist_var1(); v2 = input.dist_var2()
+        return plot_varpair_or_dist_fixed(v1, v2)
 
     # ---- 상관관계: 체크리스트 UI (초기엔 전부 체크)
     @output
@@ -400,61 +410,35 @@ def page_eda_server(input, output, session):
         num_cols = get_fixed_numeric_cols()
         if not num_cols:
             return ui.p("전처리 데이터(fixeddata)가 없거나 숫자형 컬럼이 없습니다.")
-        groups = _heat_group_map()
 
-        def _choices_dict(cols):
-            return {c: VAR_LABELS.get(c, c) for c in cols}
-
-        out = []
-        for g in GROUPS_ORDER:
-            cols = groups.get(g, [])
-            if not cols: continue
-            out.append(
-                ui.div(
-                    ui.h6(g),
-                    ui.input_checkbox_group(
-                        f"heat_vars_{hash(g)%100000}", "",
-                        choices=_choices_dict(cols),
-                        selected=cols, inline=False
-                    ),
-                    class_="heatgrp"
-                )
-            )
-        return ui.TagList(*out)
+        # 그룹 구분 없이 “쭉 나열” (요청 유지 시 그룹 사용 가능)
+        choices = {c: VAR_LABELS.get(c, c) for c in num_cols}
+        return ui.input_checkbox_group(
+            "heat_vars_all", "", choices=choices, selected=num_cols, inline=False
+        )
 
     # ---- “전체 선택” 토글: 체크리스트 전체 on/off (히트맵은 HIT으로만 갱신)
     @reactive.Effect
     @reactive.event(input.heat_select_all)
     def _toggle_all_heat():
         sel_all = input.heat_select_all()
-        groups = _heat_group_map()
-        for g in GROUPS_ORDER:
-            cols = groups.get(g, [])
-            gid = f"heat_vars_{hash(g)%100000}"
-            try:
-                ui.update_checkbox_group(session, gid, selected=(cols if sel_all else []))  # type: ignore
-            except Exception:
-                session.send_input_message(gid, {"value": (cols if sel_all else [])})
+        num_cols = get_fixed_numeric_cols()
+        try:
+            ui.update_checkbox_group(session, "heat_vars_all", selected=(num_cols if sel_all else []))  # type: ignore
+        except Exception:
+            session.send_input_message("heat_vars_all", {"value": (num_cols if sel_all else [])})
 
     # ---- 히트맵 렌더 (오직 HIT 클릭 시에만 갱신, 최초는 전체)
     @output
     @render.plot
     @reactive.event(input.heat_go)
     def corr_heatmap_fixed():
-        selected = []
-        for g in GROUPS_ORDER:
-            gid = f"heat_vars_{hash(g)%100000}"
-            vals = getattr(input, gid)()
-            if vals: selected.extend(vals)
-        if not selected:
-            selected = get_fixed_numeric_cols()
+        selected = input.heat_vars_all()
         return plot_corr_heatmap_fixed_subset(selected)
 
-    # 최초 진입시 전체 히트맵 1회 표시를 위해(사용자가 안 눌러도 보이도록)
-    # -> UI 카드에 기본 메시지가 뜨지 않게끔, 첫 로드에 trigger
+    # 최초 진입시 전체 히트맵 1회 표시
     @reactive.Effect
     def _auto_hit_once():
-        # 페이지 첫 로드 시에만 한 번 실행
         if input.heat_go() == 0:
             session.send_input_message("heat_go", {"value": 1})
 
@@ -478,7 +462,6 @@ def page_eda_server(input, output, session):
     @output
     @render.ui
     def process_timeseries():
-        # Plotly Figure는 shinywidgets 없이 HTML로 렌더해야 comm 오류가 없습니다.
         yvar   = input.proc_single_var()
         codes  = input.mold_codes() or []
         dr     = input.proc_date_range()

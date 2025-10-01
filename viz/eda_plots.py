@@ -1,4 +1,4 @@
-# viz/eda_plots.py — optimized & compact
+# viz/eda_plots.py — optimized & compact (색상 고정 매핑 반영)
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
@@ -11,26 +11,7 @@ import plotly.graph_objects as go
 import plotly.io as pio
 
 from functools import lru_cache
-
-# ===== (추가) mold_code 색상 고정 매핑 =====
-# 파일 상단 import 근처에 추가
 import hashlib
-
-PALETTE5 = [
-    "#1f77b4",  # 파랑
-    "#2ca02c",  # 초록
-    "#9467bd",  # 보라
-    "#ff7f0e",  # 주황
-    "#17becf",  # 청록
-]
-
-def _color_for_code(code) -> str:
-    """mold_code(문자열)에 대해 세션 간에도 불변인 5색 매핑"""
-    s = str(code)
-    h = int(hashlib.md5(s.encode("utf-8")).hexdigest(), 16)
-    return PALETTE5[h % len(PALETTE5)]
-
-
 
 # ===== 사용자 설정 =====
 CAT_VARS = {"mold_code", "EMS_operation_time", "working", "passorfail", "tryshot_signal", "heating_furnace"}
@@ -38,12 +19,12 @@ EXCLUDE_VARS = {"weekday", "month", "name", "id", "line", "mold_name", "time", "
 NONE_LABEL = "선택 없음"
 
 # Heatmap 전용 제외/정렬
-HEATMAP_EXCLUDE = {"passorfail", "mold_code", "id", "line", "name", "date", "time", "weekday", "month", "day"}
+HEATMAP_EXCLUDE = {"passorfail", "mold_code", "EMS_operation_time", "id", "line", "name", "date", "time", "weekday", "month", "day"}
 HEATMAP_ORDER = [
     # ① 용탕 준비
     "molten_temp", "molten_volume",
     # ② 반고체 슬러리 제조
-    "sleeve_temperature", "EMS_operation_time",
+    "sleeve_temperature",
     # ③ 사출 & 금형 충전
     "low_section_speed", "high_section_speed", "cast_pressure",
     "biscuit_thickness", "physical_strength",
@@ -202,7 +183,7 @@ def plot_corr_heatmap_fixed_subset(selected_cols):
     if DF_FIXED is None:
         return _fig_msg("전처리 데이터(fixeddata)를 찾을 수 없습니다.")
     if not selected_cols:
-        return _fig_msg("왼쪽에서 변수를 선택하고 HIT을 누르세요.")
+        return _fig_msg("왼쪽 체크에서 변수를 선택하고 HIT을 누르세요.")
     valid = [c for c in selected_cols
              if c in DF_FIXED.columns
              and (c not in HEATMAP_EXCLUDE)
@@ -221,6 +202,25 @@ def plot_corr_heatmap_fixed_subset(selected_cols):
     ax.set_yticklabels(ax.get_yticklabels(), rotation=0)
     plt.tight_layout()
     return fig
+
+# ===== (여기부터) 금형코드 색상 고정 매핑 =====
+MOLD_CODE_COLOR_MAP: dict[str, str] = {
+    "8722": "#2ca02c",  # green
+    "8573": "#9467bd",  # purple
+    "8412": "#1f77b4",  # blue
+    "8917": "#d62728",  # red
+    "8600": "#17becf",  # teal
+}
+_FALLBACK_COLORS = [
+    "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#ff7f0e",
+    "#aec7e8", "#98df8a", "#ff9896", "#c5b0d5", "#c49c94",
+]
+def _color_for_code(code_label: str) -> str:
+    key = str(code_label)
+    if key in MOLD_CODE_COLOR_MAP:
+        return MOLD_CODE_COLOR_MAP[key]
+    h = int(hashlib.sha256(key.encode("utf-8")).hexdigest(), 16)
+    return _FALLBACK_COLORS[h % len(_FALLBACK_COLORS)]
 
 # ===== fixeddata3: 경량 로더 & Plotly HTML 시계열 =====
 _FIXED3_BASE_COLS = ["mold_code", "date", "time_hour", "time_minute"]
@@ -272,31 +272,14 @@ def get_mold_code_levels():
     vals = pd.unique(df["mold_code"].astype(str).fillna("")).tolist()
     return sorted([v for v in vals if v])
 
-def _adaptive_freq(start, end) -> str:
-    """기간 길이에 따른 리샘플 주기"""
-    if not start or not end:
-        return "1min"
-    total_min = (pd.to_datetime(end) - pd.to_datetime(start)).total_seconds() / 60.0
-    if total_min <= 24*60:     return "1min"
-    if total_min <= 3*24*60:   return "5min"
-    if total_min <= 14*24*60:  return "15min"
-    return "60min"
-
-def _should_use_markers(n_points: int) -> bool:
-    return n_points <= 2000
-
-def _should_use_webgl(n_points: int) -> bool:
-    return n_points > 10000
-
-def _break_long_gaps(df: pd.DataFrame, time_col="time", y_col="value", gap="30min"):
-    """gap 초과 간격은 선을 끊도록 NaN 삽입"""
-    gap_mask = df[time_col].diff() > pd.Timedelta(gap)
-    df.loc[gap_mask, y_col] = np.nan
-    return df
-
 def plot_timeseries_fixed3_plotly_html(yvar: str, codes, start_date=None, end_date=None) -> str:
-    import plotly.graph_objects as go
-    import plotly.io as pio
+    """
+    단일 y변수 / mold_code별 '실선만' 표시
+    - 리샘플/보간 없음: 있는 데이터만 시간순으로 연결
+    - 간격이 1시간을 초과하면 선을 '끊어서' 공백으로 보이게 (세그먼트 분할)
+    - rangeslider + rangeselector + ALL(reset) 버튼
+    반환: Plotly HTML (Shiny @render.ui + ui.HTML 로 렌더)
+    """
     import pandas as pd
 
     fig = go.Figure()
@@ -304,21 +287,28 @@ def plot_timeseries_fixed3_plotly_html(yvar: str, codes, start_date=None, end_da
         fig.add_annotation(text="세부 변수를 선택하세요.", xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False)
         return pio.to_html(fig, include_plotlyjs="cdn", full_html=False)
 
+    # 필요한 열만 로드 (_t_ 포함)
     df = _load_fixed3_light((yvar,))
     if df is None or df.empty:
         fig.add_annotation(text="fixeddata3를 읽을 수 없습니다.", xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False)
         return pio.to_html(fig, include_plotlyjs="cdn", full_html=False)
 
+    # 날짜 범위: 하루만 선택되면 [00:00, 다음날 00:00)로 확장
     start_ts = pd.to_datetime(start_date) if start_date else None
     end_ts   = pd.to_datetime(end_date) if end_date else None
     if start_ts is not None and end_ts is not None and start_ts.normalize() == end_ts.normalize():
         end_ts = end_ts + pd.Timedelta(days=1)
-    if start_ts is not None: df = df[df["_t_"] >= start_ts]
-    if end_ts   is not None: df = df[df["_t_"] <= end_ts]
+
+    # 기간 필터
+    if start_ts is not None:
+        df = df[df["_t_"] >= start_ts]
+    if end_ts is not None:
+        df = df[df["_t_"] <= end_ts]
     if df.empty:
         fig.add_annotation(text="선택한 기간에 데이터가 없습니다.", xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False)
         return pio.to_html(fig, include_plotlyjs="cdn", full_html=False)
 
+    # mold_code 필터
     if "mold_code" in df.columns and codes:
         codes = [str(c) for c in codes]
         df["mold_code"] = df["mold_code"].astype(str)
@@ -327,11 +317,9 @@ def plot_timeseries_fixed3_plotly_html(yvar: str, codes, start_date=None, end_da
         fig.add_annotation(text="선택한 mold_code에 데이터가 없습니다.", xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False)
         return pio.to_html(fig, include_plotlyjs="cdn", full_html=False)
 
+    # y 숫자화 & 결측 제거
     df[yvar] = pd.to_numeric(df[yvar], errors="coerce")
     df = df.dropna(subset=[yvar, "_t_"])
-    if df.empty:
-        fig.add_annotation(text="유효한 값이 없습니다.", xref="paper", yref="paper", x=0.5, y=0.5, showarrow=False)
-        return pio.to_html(fig, include_plotlyjs="cdn", full_html=False)
 
     GAP = pd.Timedelta(hours=1)
 
@@ -339,7 +327,8 @@ def plot_timeseries_fixed3_plotly_html(yvar: str, codes, start_date=None, end_da
         g = g.sort_values("_t_").reset_index(drop=True)
         ts = pd.to_datetime(g["_t_"])
         ys = pd.to_numeric(g[yvar], errors="coerce")
-        col = _color_for_code(code_label)
+
+        col = _color_for_code(str(code_label))  # 고정 색상
 
         cut = ts.diff() > GAP
         starts = [0] + cut[cut].index.tolist()
@@ -351,6 +340,14 @@ def plot_timeseries_fixed3_plotly_html(yvar: str, codes, start_date=None, end_da
             seg_y = ys.iloc[s:e]
             if seg_x.size < 1:
                 continue
+
+            # ⚠️ f-string + Plotly placeholder 혼용 금지 → 문자열 연결로 처리
+            hovertemplate = (
+                (f"금형코드: {code_label}<br>" if code_label else "") +
+                "날짜/시간: %{x|%Y-%m-%d %H:%M}<br>" +       # 일반 문자열
+                f"{k(yvar)}: " + "%{y:.3g}<extra></extra>"   # 일반 문자열과 f-string을 분리
+            )
+
             fig.add_trace(
                 go.Scatter(
                     x=seg_x,
@@ -360,32 +357,24 @@ def plot_timeseries_fixed3_plotly_html(yvar: str, codes, start_date=None, end_da
                     legendgroup=str(code_label),
                     showlegend=first,
                     line=dict(color=col, width=2),
-                    # ⬇⬇⬇ f-string + Plotly 템플릿을 분리해서 'y' 미정의 오류 방지
-                    hovertemplate=(
-                        (f"금형코드: {code_label}<br>" if code_label else "")
-                        + "날짜/시간: %{x|%Y-%m-%d %H:%M}<br>"
-                        + f"{k(yvar)}: " + "%{y:.3g}<extra></extra>"
-                    ),
+                    hovertemplate=hovertemplate,
                     connectgaps=False,
                 )
             )
             first = False
 
     if "mold_code" in df.columns:
-        df["mold_code"] = df["mold_code"].astype(str)
         for code, g in df.groupby("mold_code", sort=False):
             _add_segments_for_group(g, code)
     else:
         _add_segments_for_group(df, k(yvar))
 
     fig.update_layout(
-        title=f"{k(yvar)} 시계열 탐색",
-        template="plotly_white",
         margin=dict(l=50, r=50, t=60, b=60),
         legend=dict(title="금형코드"),
+        title=f"{k(yvar)} 시계열 탐색",
         xaxis=dict(
             title="날짜/시간",
-            type="date",
             rangeselector=dict(
                 buttons=[
                     dict(count=30, step="minute", stepmode="backward", label="30m"),
@@ -397,7 +386,9 @@ def plot_timeseries_fixed3_plotly_html(yvar: str, codes, start_date=None, end_da
                 ]
             ),
             rangeslider=dict(visible=True),
+            type="date",
         ),
         yaxis=dict(title=k(yvar), autorange=True, rangemode="normal"),
+        template="plotly_white",
     )
     return pio.to_html(fig, include_plotlyjs="cdn", full_html=False)
