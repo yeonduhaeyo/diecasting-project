@@ -16,36 +16,38 @@ data_dir = app_dir / "data"
 models_dir = app_dir / "models"
 fonts_dir = app_dir / "www" / "fonts"
 
-fonts_dir = app_dir / "www" / "fonts"
-
 def setup_korean_font():
-    """한글 폰트 설정 (배포 환경 대응)"""
-    font_path = fonts_dir / "NotoSansKR-Regular.ttf"
-    
+    """로컬 + 리눅스 서버에서 모두 한글 깨짐 방지"""
+    font_candidates = []
+
+    # 1. 프로젝트 폰트 (권장)
+    font_path = Path(__file__).parent / "www" / "fonts" / "NotoSansKR-Regular.ttf"
     if font_path.exists():
-        # 폰트 파일이 있으면 등록
         font_prop = fm.FontProperties(fname=str(font_path))
         plt.rcParams['font.family'] = font_prop.get_name()
         fm.fontManager.addfont(str(font_path))
-        print(f"✅ 한글 폰트 로드 완료: {font_path}")
-    else:
-        # 폰트 파일이 없으면 시스템 폰트 시도
-        print(f"⚠️ {font_path} 폰트를 찾을 수 없습니다.")
-        try:
-            # Windows
-            plt.rcParams['font.family'] = 'Malgun Gothic'
-        except:
-            try:
-                # Mac/Linux
-                plt.rcParams['font.family'] = 'AppleGothic'
-            except:
-                print("⚠️ 시스템 한글 폰트를 찾을 수 없어 기본 폰트 사용")
-    
+        print(f"✅ 내부 폰트 적용: {font_prop.get_name()}")
+        return
+
+    # 2. 로컬 OS별 기본 폰트
+    font_candidates = ["Malgun Gothic", "AppleGothic", "NanumGothic", "Noto Sans KR"]
+
+    for font in font_candidates:
+        if font in fm.findSystemFonts(fontpaths=None, fontext='ttf'):
+            plt.rcParams['font.family'] = font
+            print(f"✅ 시스템 폰트 적용: {font}")
+            return
+
+    # 3. fallback
+    plt.rcParams['font.family'] = "DejaVu Sans"
+    print("⚠️ 한글 폰트를 찾지 못해 DejaVu Sans로 대체합니다.")
+
     # 마이너스 기호 깨짐 방지
     plt.rcParams['axes.unicode_minus'] = False
-
-# 모듈 로드 시 폰트 설정 실행
 setup_korean_font()
+
+
+# plt.rcParams['axes.unicode_minus'] = False
 
 # Data Load
 df = pd.read_csv(data_dir / "train.csv")
@@ -140,7 +142,7 @@ feature_name_map_kor = {
     "num__upper_mold_temp2": "상형 온도2(℃)",
     "num__lower_mold_temp1": "하형 온도1(℃)",
     "num__lower_mold_temp2": "하형 온도2(℃)",
-    "num__coolant_temp": "냉각수 온도(℃)",   # ✅ Coolant_temperature → 소문자 통일
+    "num__coolant_temp": "냉각수 온도(℃)",
     "num__facility_operation_cycleTime": "설비 가동 사이클타임",
     "num__production_cycletime": "생산 사이클타임",
     "num__count": "생산 횟수",
@@ -164,7 +166,7 @@ name_map_kor = {
     "count": "생산 횟수",
     "working": "작업 여부",
     "emergency_stop": "비상정지 여부",
-    "passorfail": "양/불 판정",
+    "passorfail": "양/불 판정 결과",
     "tryshot_signal": "트라이샷 여부",
     "mold_code": "금형 코드",
     "heating_furnace": "가열로 구분",

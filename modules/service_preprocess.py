@@ -196,15 +196,15 @@ rf_results_imgs = ui.div(
 
 # 8. XGBoost 결과 이미지 묶음
 xgb_results_imgs = ui.div(
-    ui.img(src="xgb_img/8412.PNG",
+    ui.img(src="xgb_img/mold_8412.png",
            style="width:100%; max-width:500px; margin-bottom:15px;"),
-    ui.img(src="xgb_img/8573.PNG",
+    ui.img(src="xgb_img/mold_8573.png",
            style="width:100%; max-width:500px; margin-bottom:15px;"),
-    ui.img(src="xgb_img/8600.PNG",
+    ui.img(src="xgb_img/mold_8600.png",
            style="width:100%; max-width:500px; margin-bottom:15px;"),
-    ui.img(src="xgb_img/8722.PNG",
+    ui.img(src="xgb_img/mold_8722.png",
            style="width:100%; max-width:500px; margin-bottom:15px;"),
-    ui.img(src="xgb_img/8917.PNG",
+    ui.img(src="xgb_img/mold_8917.png",
            style="width:100%; max-width:500px; margin-bottom:15px;"),
 )
 
@@ -235,3 +235,130 @@ best_params_table = ui.HTML("""
     </tbody>
 </table>
 """)
+
+
+shap_markdown = ui.markdown(
+                    """
+                    # SHAP + Rule 기반 변수별, 과정별 이상 탐지
+
+                    ## 1. 전체 프로세스 (요약)
+
+                    AI 모델의 예측 근거(SHAP)와 현장 경험 기반 규칙(Rule)을 결합한 제조 공정 이상 탐지 시스템
+
+                    ```
+                    입력 데이터 → [SHAP 분석] + [Rule 분석] → [스코어 통합] → [경고 등급] → [변수별 기여도]
+                    ```
+
+                    ---
+
+                    ## 2. SHAP 신호 계산
+
+                    ### SHAP 기여도 정규화
+                    AI 모델이 불량을 예측할 때 각 변수의 기여도 측정
+
+                    ```
+                    SHAP 정규화 = max(0, SHAP값) / 예측확률
+                    ```
+
+                    ### 공정별 SHAP 스코어
+                    ```
+                    SHAP 스코어 = 0.7 × 최댓값 + 0.3 × 평균값
+                    ```
+
+                    - **최댓값**: 가장 심각한 변수 감지 (급성 문제)
+                    - **평균값**: 전반적 상태 반영 (만성 문제)
+
+                    ---
+
+                    ## 3. Rule 신호 계산
+
+                    ### 임계값 위반도 정규화
+                    현장 정의 임계값 대비 위반 정도 측정
+
+                    **하한선 위반:**
+                    ```
+                    Rule 정규화 = (임계값 - 현재값) / (임계값 - 최솟값)
+                    ```
+
+                    **상한선 위반:**
+                    ```
+                    Rule 정규화 = (현재값 - 임계값) / (최댓값 - 임계값)
+                    ```
+
+                    ### 공정별 Rule 스코어
+                    ```
+                    Rule 스코어 = 0.7 × 최댓값 + 0.3 × 평균값
+                    ```
+
+                    ---
+
+                    ## 4. 스코어 통합
+
+                    ### 최종 통합 스코어
+                    ```
+                    최종 스코어 = 0.5 × SHAP 스코어 + 0.5 × Rule 스코어
+                    ```
+
+                    - 모든 스코어: **0~1 범위**
+                    - AI 예측과 현장 경험 **동등 반영**
+
+                    ---
+
+                    ## 5. 경고 등급 기준
+
+                    | 조건 | 등급 | 의미 |
+                    |------|------|------|
+                    | SHAP > 0.15 **AND** Rule > 0.15 | 강한 원인 후보 | 두 신호 모두 감지 |
+                    | SHAP > 0.15 **OR** Rule > 0.15 | 관찰 필요 | 한 신호만 감지 |
+                    | 둘 다 ≤ 0.15 | 정상 | 이상 없음 |
+
+                    ---
+
+                    ## 6. 변수별 불량 기여도 계산
+
+                    ### 변수 중요도 계산
+                    각 변수가 해당 공정에서 차지하는 상대적 비중 계산
+
+                    ```
+                    변수별 상대 중요도 = (SHAP 기여도 + Rule 기여도) / 전체 합계
+                    ```
+
+                    ### 신호 타입 분류
+                    - **두 신호 모두**: SHAP ≥ 0.1 AND Rule ≥ 0.1
+                    - **SHAP만**: SHAP ≥ 0.1 AND Rule < 0.1  
+                    - **Rule만**: SHAP < 0.1 AND Rule ≥ 0.1
+                    - **약한 신호**: 둘 다 < 0.1
+
+                    ---
+
+                    ## 적용 예시
+
+                    ### Injection 공정 경고 사례
+                    ```
+                    강한 원인 후보 (Score=0.72)
+
+                    cast_pressure: SHAP=0.25(30%), Rule=0.67(40%)
+                    biscuit_thickness: SHAP=0.15(20%), Rule=0.05(5%)
+                    low_section_speed: SHAP=0.02(2%), Rule=0.12(15%)
+
+                    SHAP=0.42 | Rule=0.84 | Pred=0.80
+                    ```
+
+                    **분석 결과:**
+                    - cast_pressure가 가장 심각한 문제 (두 신호 모두 높음)
+                    - 즉시 사출압력 점검 필요
+                    - 비스킷 두께는 AI만 감지 (추가 모니터링)
+
+                    ---
+
+                    ## 설정 파라미터
+
+                    | 파라미터 | 값 | 의미 |
+                    |----------|----|----- |
+                    | SHAP 가중치 | 0.5 | AI 신호 비중 |
+                    | Rule 가중치 | 0.5 | 규칙 신호 비중 |
+                    | 경고 임계값 | 0.15 | 경고 발생 기준 |
+                    | 급성/만성 비율 | 7:3 | 최댓값:평균값 비중 |
+                    
+                    """
+                )

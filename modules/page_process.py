@@ -81,7 +81,7 @@ def page_process_ui():
                 )
             ),
             id="accordion1",
-            open=[]  # 기본적으로 닫힘 상태
+            open=False  # 기본적으로 닫힘 상태
         ),
 
         ui.hr(),

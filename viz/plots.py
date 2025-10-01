@@ -7,7 +7,7 @@ from typing import List, Optional, Tuple, Dict, Any
 # Cut-off 분석 및 시각화 함수
 # ====================================================================
 
-def plot_failrate_cutoff_dual_fast(df: pd.DataFrame, var: str, font_family: str = 'Malgun Gothic', ma_window: int = 5, vars_to_hide: Optional[List[str]] = None) -> plt.Figure:
+def plot_failrate_cutoff_dual_fast(df: pd.DataFrame, var: str, ma_window: int = 5, vars_to_hide: Optional[List[str]] = None) -> plt.Figure:
     """
     공정 변수(var)에 대한 하한/상한 분석을 수행하고, Raw 데이터 기반 Cut-off(1차)와 
     MA 기반 Cut-off(2차)를 모두 탐지 및 시각화합니다.
@@ -25,9 +25,9 @@ def plot_failrate_cutoff_dual_fast(df: pd.DataFrame, var: str, font_family: str 
     if vars_to_hide is None:
         vars_to_hide = []
 
-    # 폰트 설정
-    plt.rcParams['font.family'] = font_family
-    plt.rcParams['axes.unicode_minus'] = False
+    # # 폰트 설정
+    # plt.rcParams['font.family'] = font_family
+    # plt.rcParams['axes.unicode_minus'] = False
     
     col_vals = df[var].dropna()
     if col_vals.empty:

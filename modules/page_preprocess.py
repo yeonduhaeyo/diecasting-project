@@ -169,6 +169,18 @@ def page_preprocess_ui():
                     col_widths=[6, 6]
                 ),
             ),
+            
+            ui.accordion_panel(
+                "5. 분석",
+            ),
+            
+            ui.accordion_panel(
+                "점수화 알고리즘 설명",
+                tbl.shap_markdown
+            ),
+            
+            
+            
 
             id="preprocess_panel",
             open=False,

@@ -15,8 +15,9 @@ app_ui = ui.page_navbar(
     ui.nav_panel("공정 설명", page_process.page_process_ui()),
     ui.nav_panel("데이터 탐색", page_eda.page_eda_ui()),
     ui.nav_panel("전처리 및 모델 설명", page_preprocess.page_preprocess_ui()),
-    title="주조 공정 품질 예측",
-    id="main_nav"
+    # title="주조 공정 품질 예측",
+    title="불량 품질 예측",
+    id="main_nav",
 )
 
 # SERVER

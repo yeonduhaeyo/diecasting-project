@@ -34,7 +34,7 @@ def process_card_with_inputs(title: str, img: str, sliders: list, cid: str):
         ui.div(
             ui.img(
                 src=img,
-                style="width:150px; height:auto; object-fit:contain; margin-bottom:10px;"
+                style="width:200px; height:auto; object-fit:contain"
             ),
             style="text-align:center;"
         ),
@@ -114,7 +114,7 @@ def inputs_layout(schema: Dict[str, Any]):
         """)
     return ui.page_fluid(
         custom_style,
-        ui.h3("주조 공정 입력"),
+        ui.h3("전자교반 3라인 2호기"),
         
         # 입력 데이터 요약
         ui.card(
@@ -124,51 +124,54 @@ def inputs_layout(schema: Dict[str, Any]):
             class_="mb-1",
             style="min-width:250px;"
         ),
+        
+        ui.br(),
 
         # 공정별 입력 카드들
         ui.layout_columns(
             process_card_with_inputs(
-                "1) 용탕 준비 및 가열", "molten2.png",
+                "1) 용탕 준비 및 가열", "molten3.png",
                 [
-                    ui.input_slider("molten_temp", "용탕 온도 (℃)", 600, 800, 700),
-                    ui.input_slider("molten_volume", "용탕 부피", -1, 600, 100)
+                    ui.input_slider("molten_temp", "용탕 온도 (℃)", 70, 750, 700),
+                    ui.input_slider("molten_volume", "용탕 부피", -1, 600, 400)
                 ], "g1"
             ),
             process_card_with_inputs(
-                "2) 반고체 슬러리 제조", "sleeve2.png",
+                "2) 반고체 슬러리 제조", "sleeve3.png",
                 [
-                    ui.input_slider("sleeve_temperature", "슬리브 온도 (℃)", 0, 1000, 500),
-                    ui.input_slider("EMS_operation_time", "EMS 작동시간 (s)", 0, 25, 23)
+                    ui.input_slider("sleeve_temperature", "슬리브 온도 (℃)", 20, 1000, 500),
+                    # ui.input_slider("EMS_operation_time", "EMS 작동시간 (s)", 0, 25, 23),
+                    ui.input_select("EMS_operation_time", "EMS 작동시간", [3, 6, 23, 25]),
                 ], "g2"
             ),
             process_card_with_inputs(
-                "3) 사출 & 금형 충전", "mold2.png",
+                "3) 사출 & 금형 충전", "mold3.png",
                 [
-                    ui.input_slider("cast_pressure", "주조 압력 (bar)", 50, 400, 300),
+                    ui.input_slider("cast_pressure", "주조 압력 (bar)", 40, 370, 300),
                     ui.input_slider("low_section_speed", "저속 구간 속도", 0, 200, 100, step=1),
-                    ui.input_slider("high_section_speed", "고속 구간 속도", 0, 400, 100, step=1),
-                    ui.input_slider("physical_strength", "형체력", 600, 800, 700),
-                    ui.input_slider("biscuit_thickness", "비스킷 두께", 1, 50, 25),
+                    ui.input_slider("high_section_speed", "고속 구간 속도", 0, 400, 150, step=1),
+                    ui.input_slider("physical_strength", "형체력", 0, 750, 700),
+                    ui.input_slider("biscuit_thickness", "비스킷 두께", 0, 450, 25),  # 이거 물어보기
                 ], "g3"
             ),
             process_card_with_inputs(
-                "4) 응고", "cooling2.png",
+                "4) 응고", "cooling3.png",
                 [
-                    ui.input_slider("upper_mold_temp1", "상형 온도1 (℃)", 0, 400, 160),
-                    ui.input_slider("upper_mold_temp2", "상형 온도2 (℃)", 0, 400, 150),
-                    ui.input_slider("lower_mold_temp1", "하형 온도1 (℃)", 0, 400, 290),
-                    ui.input_slider("lower_mold_temp2", "하형 온도2 (℃)", 0, 400, 180),
+                    ui.input_slider("upper_mold_temp1", "상형 온도1 (℃)", 10, 400, 160),
+                    ui.input_slider("upper_mold_temp2", "상형 온도2 (℃)", 10, 250, 150),
+                    ui.input_slider("lower_mold_temp1", "하형 온도1 (℃)", 10, 400, 290),
+                    ui.input_slider("lower_mold_temp2", "하형 온도2 (℃)", 10, 550, 180),
                     ui.input_slider("coolant_temp", "냉각수 온도 (℃)", 0, 50, 30)
                 ], "g4"
             ),
             process_card_with_inputs(
-                "기타) 전체 과정 관여 변수", "overall.png",
+                "기타) 전체 과정 관여 변수", "overall3.png",
                 [
                     ui.input_select("mold_code", "금형 코드", ["8412", "8573", "8600", "8722", "8917"]),
                     ui.input_select("working", "작업 여부", ["가동", "정지"]),
-                    ui.input_numeric("count", "생산 횟수", value=0),
-                    ui.input_numeric("facility_operation_cycleTime", "설비 가동 사이클타임", value=120),
-                    ui.input_numeric("production_cycletime", "생산 사이클타임", value=150),
+                    ui.input_numeric("count", "생산 횟수", min = 1, value=100),
+                    ui.input_slider("facility_operation_cycleTime", "설비 가동 사이클타임", 60, 500, 120),
+                    ui.input_slider("production_cycletime", "생산 사이클타임", 60, 500, 160),
                     ui.input_checkbox("tryshot_check", "트라이샷 여부", value=False)
                 ], "overall"
             ),
