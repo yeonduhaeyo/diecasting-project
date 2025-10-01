@@ -99,11 +99,17 @@ def normalize_rule_severity(var, value):
 def shap_based_warning(process: str,
                        shap_values_state,
                        X_input_state,
+                       X_input_raw,
                        feature_name_map,
                        pred_state=None):
     """SHAP + Cut-off 융합 기반 공정별 경고 메시지"""
     shap_values = shap_values_state.get()
     X = X_input_state.get()
+    X_raw = X_input_raw.get()
+    print("-------------------------------------1")
+    print(X)
+    print("-------------------------------------2")
+    print(X_raw)
     pred = pred_state.get() if pred_state is not None else None
 
     # 값 없는 경우
@@ -154,12 +160,28 @@ def shap_based_warning(process: str,
     shap_avg = sum(shap_values_list) / max(len(key_vars), 1)
     shap_score = 0.7 * shap_max + 0.3 * shap_avg
 
-    # B. Rule 신호 처리
+    # # B. Rule 신호 처리
+    # rule_normalized = {}
+    # current_values = {}
+    # for v in key_vars:
+    #     if v in X.columns:  # 여기 수정해야됨
+    #         current_value = float(X.iloc[0][v])  # 여기 수정해야됨
+    #         current_values[v] = current_value
+    #         rule_norm = normalize_rule_severity(v, current_value)
+    #         rule_normalized[v] = rule_norm
+    #     else:
+    #         current_values[v] = None
+    #         rule_normalized[v] = 0.0
+    
+    # B. Rule 신호 처리 (원본 데이터 사용)
     rule_normalized = {}
     current_values = {}
     for v in key_vars:
-        if v in X.columns:
-            current_value = float(X.iloc[0][v])
+        # 전처리 컬럼명(num__xxx, cat__xxx)을 원본 컬럼명으로 변환
+        raw_col_name = v.replace("num__", "").replace("cat__", "")
+        
+        if raw_col_name in X_raw.columns:
+            current_value = float(X_raw.iloc[0][raw_col_name])
             current_values[v] = current_value
             rule_norm = normalize_rule_severity(v, current_value)
             rule_normalized[v] = rule_norm
@@ -171,6 +193,14 @@ def shap_based_warning(process: str,
     rule_max = max(rule_values_list) if rule_values_list else 0.0
     rule_avg = sum(rule_values_list) / max(len(key_vars), 1)
     rule_score = 0.7 * rule_max + 0.3 * rule_avg
+    
+    
+    
+    
+    
+    
+    
+    
 
     # C. 통합 스코어
     w_shap, w_rule = 0.5, 0.5

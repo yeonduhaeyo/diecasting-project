@@ -4,7 +4,7 @@ def page_process_ui():
     
     # 1. 툴팁 아이콘 콘텐츠 정의 (테이블 밖에서 재사용)
     tooltip_icon_content = ui.span([
-        ui.HTML('<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" fill=\"#1976d2\" class=\"bi bi-info-circle-fill mb-1\" viewBox=\"0 0 16 16\"><path d=\"M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM5.496 6.033h.825c.138 0 .248-.113.266-.25.09-.656.54-1.134 1.342-1.134.686 0 1.314.343 1.314 1.168 0 .635-.374.927-.965 1.371-.673.489-1.206 1.06-1.168 1.987l.003.217a.25.25 0 0 0 .25.246h.811a.25.25 0 0 0 .25-.25v-.105c0-.718.273-.927 1.01-1.486.609-.463 1.244-.977 1.244-2.056 0-1.511-1.276-2.241-2.673-2.241-1.267 0-2.655.59-2.75 2.286a.237.237 0 0 0 .241.247zm2.325 6.443c.61 0 1.029-.394 1.029-.927 0-.552-.42-.94-1.029-.94-.584 0-1.009.388-1.009.94 0 .533.425.927 1.01.927z\"/></svg>')
+        ui.HTML('<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" fill=\"white\" class=\"bi bi-info-circle-fill mb-1\" viewBox=\"0 0 16 16\"><path d=\"M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM5.496 6.033h.825c.138 0 .248-.113.266-.25.09-.656.54-1.134 1.342-1.134.686 0 1.314.343 1.314 1.168 0 .635-.374.927-.965 1.371-.673.489-1.206 1.06-1.168 1.987l.003.217a.25.25 0 0 0 .25.246h.811a.25.25 0 0 0 .25-.25v-.105c0-.718.273-.927 1.01-1.486.609-.463 1.244-.977 1.244-2.056 0-1.511-1.276-2.241-2.673-2.241-1.267 0-2.655.59-2.75 2.286a.237.237 0 0 0 .241.247zm2.325 6.443c.61 0 1.029-.394 1.029-.927 0-.552-.42-.94-1.029-.94-.584 0-1.009.388-1.009.94 0 .533.425.927 1.01.927z\"/></svg>')
     ])
     
     # 최종 툴팁 컴포넌트
@@ -97,7 +97,7 @@ def page_process_ui():
                     ),
                     # ⭐️ 공정 설명 제목 수정 및 내용 간소화
                     ui.card(
-                        ui.h4("공정 원리 및 변수 영향"), 
+                        ui.card_header("공정 원리 및 변수 영향"), 
                         ui.markdown("""
                         슬러리 제조 전, 알루미늄을 녹여 **최적의 초기 온도와 양**을 준비하는 단계. **주조 안정성**에 직결
 
@@ -109,7 +109,7 @@ def page_process_ui():
                     
                     # ⭐️ 수정된 관리 기준 카드: 툴팁 위치 적용
                     ui.card(
-                        ui.h4( 
+                        ui.card_header( 
                             ["관리 기준", tooltip_wrapper], # 툴팁이 제목 옆에 인라인으로 붙습니다.
                             style="margin-bottom: 5px;"
                         ),
@@ -118,7 +118,7 @@ def page_process_ui():
                             ("용탕 부피 (molten_volume)", "5", "113"),
                         ])
                     ),
-                    ui.card(ui.h4("실제 데이터 기반 불량율 변화 그래프"), ui.output_plot("plot_selected_var_quality_molten"))
+                    ui.card(ui.card_header("실제 데이터 기반 불량율 변화 그래프"), ui.output_plot("plot_selected_var_quality_molten"))
                 )
             ),
 
@@ -132,7 +132,7 @@ def page_process_ui():
                     ),
                     # ⭐️ 공정 설명 제목 수정 및 내용 간소화
                     ui.card(
-                        ui.h4("공정 원리 및 변수 영향"), 
+                        ui.card_header("공정 원리 및 변수 영향"), 
                         ui.markdown("""
                         용탕을 냉각하며 **EMS**(전자 교반)로 금속 입자를 **미세하고 구형**으로 만드는 레오캐스팅의 핵심 단계. 기공과 수축을 억제
                         
@@ -144,7 +144,7 @@ def page_process_ui():
                     
                     # ⭐️ 수정된 관리 기준 카드: 툴팁 위치 적용
                     ui.card(
-                        ui.h4(
+                        ui.card_header(
                             ["관리 기준", tooltip_wrapper],
                             style="margin-bottom: 5px;"
                         ),
@@ -153,7 +153,7 @@ def page_process_ui():
                             ("EMS 작동 시간 (EMS_operation_time)", "-", "-"),
                         ])
                     ),
-                    ui.card(ui.h4("실제 데이터 기반 불량율 변화 그래프"), ui.output_plot("plot_selected_var_quality_slurry"))
+                    ui.card(ui.card_header("실제 데이터 기반 불량율 변화 그래프"), ui.output_plot("plot_selected_var_quality_slurry"))
                 )
             ),
 
@@ -167,7 +167,7 @@ def page_process_ui():
                     ),
                     # ⭐️ 공정 설명 제목 수정 및 내용 간소화
                     ui.card(
-                        ui.h4("공정 원리 및 변수 영향"), 
+                        ui.card_header("공정 원리 및 변수 영향"), 
                         ui.markdown("""
                         피스톤으로 슬러리를 금형에 주입하는 단계. 속도와 압력 제어로 **공기 혼입**(기포)을 최소화하는 것이 핵심
                         
@@ -182,7 +182,7 @@ def page_process_ui():
                     
                     # ⭐️ 수정된 관리 기준 카드: 툴팁 위치 적용
                     ui.card(
-                        ui.h4(
+                        ui.card_header(
                             ["관리 기준", tooltip_wrapper],
                             style="margin-bottom: 5px;"
                         ),
@@ -194,7 +194,7 @@ def page_process_ui():
                             ("형체력 (physical_strength)", "-", "-"),
                         ])
                     ),
-                    ui.card(ui.h4("실제 데이터 기반 불량율 변화 그래프"), ui.output_plot("plot_selected_var_quality_injection"))
+                    ui.card(ui.card_header("실제 데이터 기반 불량율 변화 그래프"), ui.output_plot("plot_selected_var_quality_injection"))
                 )
             ),
 
@@ -208,7 +208,7 @@ def page_process_ui():
                     ),
                     # ⭐️ 공정 설명 제목 수정 및 내용 간소화
                     ui.card(
-                        ui.h4("공정 원리 및 변수 영향"), 
+                        ui.card_header("공정 원리 및 변수 영향"), 
                         ui.markdown("""
                         금형 내에서 금속이 열을 방출하며 고체로 변하는 단계. **최종 제품의 미세 조직과 치수 안정성**을 결정
                         
@@ -220,7 +220,7 @@ def page_process_ui():
                     
                     # ⭐️ 수정된 관리 기준 카드: 툴팁 위치 적용
                     ui.card(
-                        ui.h4(
+                        ui.card_header(
                             ["관리 기준", tooltip_wrapper],
                             style="margin-bottom: 5px;"
                         ),
@@ -232,7 +232,7 @@ def page_process_ui():
                             ("냉각수 온도 (Coolant_temperature)", "29", "-"),
                         ])
                     ),
-                    ui.card(ui.h4("실제 데이터 기반 불량율 변화 그래프"), ui.output_plot("plot_selected_var_quality_solid"))
+                    ui.card(ui.card_header("실제 데이터 기반 불량율 변화 그래프"), ui.output_plot("plot_selected_var_quality_solid"))
                 )
             ),
 
@@ -244,7 +244,7 @@ def page_process_ui():
                         ui.h4("관련 변수"),
                         ui.tags.ul(ui.tags.li("최종 품질 결과 (passorfail)"))
                     ),
-                    ui.card(ui.h4("공정 설명"), ui.markdown("모든 변수를 종합해 최종 양품/불량품 (0=양품, 1=불량품) 판정"))
+                    ui.card(ui.card_header("공정 설명"), ui.markdown("모든 변수를 종합해 최종 양품/불량품 (0=양품, 1=불량품) 판정"))
                 )
             ),
             id="process_nav"

@@ -5,8 +5,9 @@ import numpy as np
 
 shap_values_state = reactive.Value(None)
 X_input_state = reactive.Value(None)
+X_input_raw = reactive.Value(None)
 
-def do_predict(input, shap_values_state, X_input_state, models, explainers):
+def do_predict(input, shap_values_state, X_input_state, X_input_raw, models, explainers):
     """
     버튼 클릭 시 실행되는 예측 함수
     - mold_code 모델이 있으면 해당 모델 사용
@@ -68,6 +69,7 @@ def do_predict(input, shap_values_state, X_input_state, models, explainers):
 
         shap_values_state.set(shap_values)
         X_input_state.set(X_transformed_df)
+        X_input_raw.set(X.copy())
 
         return pred, proba
 
@@ -92,5 +94,6 @@ def do_predict(input, shap_values_state, X_input_state, models, explainers):
         # soft voting일 때는 shap 계산이 애매 → None으로
         shap_values_state.set(None)
         X_input_state.set(None)
+        X_input_raw.set(X.copy())
 
         return pred, avg_proba

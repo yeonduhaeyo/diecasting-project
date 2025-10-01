@@ -10,6 +10,12 @@ from viz.shap_plots import register_shap_plots
 from modules.service_predict import do_predict
 from modules.service_warnings import shap_based_warning
 
+# from modules.service_adjustment import (
+#     rsg_adjustment_guide,
+#     CUTOFFS,
+#     DATA_RANGES
+# )
+
 
 # ======================
 # 상태 저장용 (세션 전역)
@@ -18,6 +24,8 @@ shap_values_state = reactive.Value(None)
 X_input_state = reactive.Value(None)
 y_test_state = reactive.Value(None)
 pred_state = reactive.Value(None)
+
+X_input_raw = reactive.Value(None)
 
 
 # ======================
@@ -34,7 +42,7 @@ def process_card_with_inputs(title: str, img: str, sliders: list, cid: str):
         ui.div(
             ui.img(
                 src=img,
-                style="width:200px; height:auto; object-fit:contain"
+                style="width:100%; height:auto; object-fit:cover; border-radius:6px;"
             ),
             style="text-align:center;"
         ),
@@ -51,7 +59,7 @@ def process_card_with_inputs(title: str, img: str, sliders: list, cid: str):
 # ======================
 # Layout
 # ======================
-def inputs_layout(schema: Dict[str, Any]):
+def inputs_layout():
     custom_style = ui.tags.style("""
             /* 전체 카드 공통 */
             .card {
@@ -66,7 +74,7 @@ def inputs_layout(schema: Dict[str, Any]):
 
             /* 카드 헤더 - 메탈 블루 톤 */
             .card-header {
-                background-color: #2b3e50;
+                background-color: #2C3E50;
                 color: #f8f9fa;
                 font-weight: 600;
                 font-size: 1.1rem;
@@ -122,7 +130,7 @@ def inputs_layout(schema: Dict[str, Any]):
             ui.output_ui("input_summary_table_default"),  # ✅ 초기 메시지
             ui.output_ui("input_summary_table"),           # ✅ 테이블
             class_="mb-1",
-            style="min-width:250px;"
+            style="min-width:200px; padding:0.25rem;"
         ),
         
         ui.br(),
@@ -298,7 +306,7 @@ def page_input_server(input, output, session):
     @render.ui
     @reactive.event(input.btn_predict)
     def pred_result_card():
-        pred, proba = do_predict(input, shap_values_state, X_input_state, rf_models, rf_explainers)
+        pred, proba = do_predict(input, shap_values_state, X_input_state, X_input_raw, rf_models, rf_explainers)
         pred_state.set(pred)
 
         if pred == -1:
@@ -339,6 +347,7 @@ def page_input_server(input, output, session):
                 process_name,
                 shap_values_state,
                 X_input_state,
+                X_input_raw,
                 feature_name_map_kor,
                 pred_state
             )
@@ -359,6 +368,7 @@ def page_input_server(input, output, session):
                 process_name,
                 shap_values_state,
                 X_input_state,
+                X_input_raw,
                 feature_name_map_kor,
                 pred_state
             )
