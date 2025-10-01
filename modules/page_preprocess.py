@@ -128,18 +128,17 @@ def page_preprocess_ui():
             ui.accordion_panel(
                 "4. 최종 모델 도출",
 
-                ui.h4("금형 코드별 모델 성능 비교 (RandomForest vs XGBoost)"),
+                ui.h4("모델 성능 비교"),
 
-                ui.layout_columns(
-                    ui.card(
-                        ui.card_header("RandomForest 결과"),
-                        tbl.rf_results_imgs
-                    ),
-                    ui.card(
-                        ui.card_header("XGBoost 결과"),
-                        tbl.xgb_results_imgs
-                    ),
-                    col_widths=[6, 6]
+                # 평균 성능 카드
+                ui.card(
+                    ui.card_header("모델 평균 성능"),
+                    tbl.avg_result_table),
+
+                # 몰드 코드별 성능 카드
+                ui.card(
+                    ui.card_header("몰드 코드별 모델 성능"),
+                    tbl.each_result_table
                 ),
 
                 ui.hr(),

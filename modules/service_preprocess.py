@@ -362,3 +362,59 @@ shap_markdown = ui.markdown(
                     
                     """
                 )
+
+
+avg_result_table = ui.HTML("""
+        <div style="overflow-x:auto;">
+        <table class="table table-bordered table-sm table-hover">
+            <thead>
+                <tr>
+                    <th>Model</th><th>Accuracy</th><th>F1 Score</th>
+                    <th>F2 Score</th><th>AUC</th><th>Recall (불량=1)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td><b>LightGBM</b></td><td>0.9924</td><td>0.9143</td><td>0.9200</td><td>0.9970</td><td>0.9169</td></tr>
+                <tr><td><b>XGBoost</b></td><td>0.9890</td><td>0.8776</td><td>0.8850</td><td>0.9763</td><td>0.8828</td></tr>
+                <tr><td><b>Random Forest</b></td><td>0.9930</td><td>0.9286</td><td>0.9504</td><td>0.9935</td><td>0.9663</td></tr>
+                <tr><td><b>Logistic Regression</b></td><td>0.9731</td><td>0.7325</td><td>0.7920</td><td>0.9660</td><td>0.8277</td></tr>
+                <tr><td><b>Decision Tree</b></td><td>0.9907</td><td>0.9401</td><td>0.9360</td><td>0.9100</td><td>0.9309</td></tr>
+            </tbody>
+        </table>
+        </div>
+        """)
+
+each_result_table = ui.HTML("""
+        <div style="overflow-x:auto;">
+        <table class="table table-bordered table-sm table-hover">
+            <thead>
+                <tr>
+                    <th>Mold Code</th><th>Model</th><th>Accuracy</th>
+                    <th>Precision</th><th>Recall</th><th>F1 Score</th>
+                    <th>F2 Score</th><th>AUC</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td rowspan="3"><b>8412</b></td><td>LightGBM</td><td>0.9970</td><td>0.9457</td><td>0.9683</td><td>0.9569</td><td>0.9631</td><td>0.9997</td></tr>
+                <tr><td>XGBoost</td><td>0.9962</td><td>0.9667</td><td>0.9206</td><td>0.9431</td><td>0.9307</td><td>0.9964</td></tr>
+                <tr><td><b>RandomForest</b></td><td><b>0.9965</b></td><td><b>0.9313</b></td><td><b>0.9683</b></td><td><b>0.9494</b></td><td><b>0.9606</b></td><td><b>0.9996</b></td></tr>
+
+                <tr><td rowspan="3"><b>8722</b></td><td>LightGBM</td><td>0.9947</td><td>0.9434</td><td>0.9569</td><td>0.9501</td><td>0.9544</td><td>0.9992</td></tr>
+                <tr><td>XGBoost</td><td>0.9929</td><td>0.9415</td><td>0.9234</td><td>0.9324</td><td>0.9275</td><td>0.9990</td></tr>
+                <tr><td><b>RandomForest</b></td><td><b>0.9948</b></td><td><b>0.9405</b></td><td><b>0.9405</b></td><td><b>0.9405</b></td><td><b>0.9405</b></td><td><b>0.9792</b></td></tr>
+
+                <tr><td rowspan="3"><b>8917</b></td><td>LightGBM</td><td>0.9952</td><td>0.9463</td><td>0.9463</td><td>0.9463</td><td>0.9463</td><td>0.9959</td></tr>
+                <tr><td>XGBoost</td><td>0.9954</td><td>0.9510</td><td>0.9463</td><td>0.9487</td><td>0.9475</td><td>0.9929</td></tr>
+                <tr><td><b>RandomForest</b></td><td><b>0.9865</b></td><td><b>0.7895</b></td><td><b>1.0000</b></td><td><b>0.8824</b></td><td><b>0.9494</b></td><td><b>0.9963</b></td></tr>
+
+                <tr><td rowspan="3"><b>8573</b></td><td>LightGBM</td><td>0.9948</td><td>0.9405</td><td>0.9405</td><td>0.9405</td><td>0.9405</td><td>0.9975</td></tr>
+                <tr><td>XGBoost</td><td>0.9958</td><td>0.9634</td><td>0.9405</td><td>0.9518</td><td>0.9461</td><td>0.9854</td></tr>
+                <tr><td><b>RandomForest</b></td><td><b>0.9929</b></td><td><b>0.9022</b></td><td><b>0.9713</b></td><td><b>0.9355</b></td><td><b>0.9566</b></td><td><b>0.9991</b></td></tr>
+
+                <tr><td rowspan="3"><b>8600</b></td><td>LightGBM</td><td>0.9916</td><td>0.9310</td><td>0.9000</td><td>0.9153</td><td>0.9065</td><td>0.9987</td></tr>
+                <tr><td>XGBoost</td><td>0.9932</td><td>0.9063</td><td>0.9667</td><td>0.9355</td><td>0.9494</td><td>0.9979</td></tr>
+                <tr><td><b>RandomForest</b></td><td><b>0.9941</b></td><td><b>0.9198</b></td><td><b>0.9512</b></td><td><b>0.9353</b></td><td><b>0.9448</b></td><td><b>0.9935</b></td></tr>
+            </tbody>
+        </table>
+        </div>
+        """)

@@ -63,8 +63,12 @@ def register_shap_plots(output, shap_values_state, X_input_state, y_test_state, 
             X_korean.columns = [feature_name_map_kor.get(col, col) for col in X.columns]
             X_rounded = X_korean.iloc[0, :].round(4)  # ✅ 소수점 4자리
 
+            X_labels = X_rounded.copy()
+            X_labels.index = [
+                f"{col}\n" for col, val in zip(X_labels.index, X_labels.values)
+            ]
             plt.figure(figsize=(14, 3))
-            shap.plots.force(base_value, vals, X_rounded, matplotlib=True, show=False)
+            shap.plots.force(base_value, vals, X_labels, matplotlib=True, show=False)
             plt.title("SHAP Force Plot (개별 샘플 분석)", fontsize=13, fontweight='bold', pad=15)
             plt.tight_layout(pad=1.5)
             return plt.gcf()
