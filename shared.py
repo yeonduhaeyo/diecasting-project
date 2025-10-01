@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import joblib
 import shap
+from matplotlib import font_manager
 
 from models.FinalModel.smote_sampler import MajorityVoteSMOTENC
 
@@ -12,14 +13,28 @@ app_dir = Path(__file__).parent
 # 데이터 경로
 data_dir = app_dir / "data"
 models_dir = app_dir / "models"
+fonts_dir = app_dir / "www" / "fonts"
 
-# 한글 폰트 설정 (Windows 기준: 맑은 고딕)
-plt.rcParams['font.family'] = 'Malgun Gothic'
+fonts_dir = app_dir / "www" / "fonts"
+
+font_path = fonts_dir / "NotoSansKR-Regular.ttf"
+
+if font_path.exists():
+    # 폰트 등록 후 실제 이름 가져오기
+    font_prop = font_manager.FontProperties(fname=str(font_path))
+    font_name = font_prop.get_name()   # ex) "Noto Sans KR Regular"
+    plt.rcParams['font.family'] = font_name
+    print(f"✅ 폰트 적용됨: {font_name}")
+else:
+    plt.rcParams['font.family'] = 'DejaVu Sans'
+    print("⚠️ NotoSansKR-Regular.ttf 폰트를 찾을 수 없어 기본 폰트 사용")
+
 # 음수 기호 깨짐 방지
 plt.rcParams['axes.unicode_minus'] = False
 
 # Data Load
 df = pd.read_csv(data_dir / "train.csv")
+df.info()
 
 # 이상치 제거 데이터
 df2 = pd.read_csv(data_dir / "outlier_remove_data2.csv")
@@ -118,4 +133,55 @@ feature_name_map_kor = {
     "cat__working_정지": "작업 여부=정지",
     "cat__tryshot_signal_A": "트라이샷 신호=A",
     "cat__tryshot_signal_D": "트라이샷 신호=D",
+}
+
+name_map_kor = {
+    # 메타/식별자
+    "id": "행 ID",
+    "line": "작업 라인",
+    "name": "제품명",
+    "mold_name": "금형명",
+    "time": "수집 시간",
+    "date": "수집 일자",
+    "registration_time": "등록 일시",
+
+    # 생산 관련
+    "count": "생산 횟수",
+    "working": "작업 여부",
+    "emergency_stop": "비상정지 여부",
+    "passorfail": "양/불 판정",
+    "tryshot_signal": "트라이샷 여부",
+    "mold_code": "금형 코드",
+    "heating_furnace": "가열로 구분",
+
+    # 공정 변수
+    "molten_temp": "용탕 온도",
+    "molten_volume": "용탕 부피",
+    "sleeve_temperature": "슬리브 온도",
+    "EMS_operation_time": "EMS 작동시간",
+    "cast_pressure": "주조 압력(bar)",
+    "biscuit_thickness": "비스킷 두께(mm)",
+    "low_section_speed": "저속 구간 속도",
+    "high_section_speed": "고속 구간 속도",
+    "physical_strength": "형체력",
+
+    # 금형 온도
+    "upper_mold_temp1": "상형 온도1",
+    "upper_mold_temp2": "상형 온도2",
+    "upper_mold_temp3": "상형 온도3",
+    "lower_mold_temp1": "하형 온도1",
+    "lower_mold_temp2": "하형 온도2",
+    "lower_mold_temp3": "하형 온도3",
+
+    # 냉각 관련
+    "Coolant_temperature": "냉각수 온도",
+
+    # 사이클 관련
+    "facility_operation_cycleTime": "설비 가동 사이클타임",
+    "production_cycletime": "생산 사이클타임",
+
+    # 파생 변수
+    "day": "일",
+    "month": "월",
+    "weekday": "요일"
 }

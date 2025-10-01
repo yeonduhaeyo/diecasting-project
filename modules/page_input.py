@@ -97,6 +97,20 @@ def inputs_layout(schema: Dict[str, Any]):
                 border-color: #0b5ed7;
                 transform: scale(1.05);
             }
+            
+            @font-face {
+                font-family: 'Noto Sans KR';
+                src: url('/fonts/NotoSansKR-Regular.ttf') format('truetype');
+                font-weight: normal;
+                font-style: normal;
+            }
+            body {
+                font-family: 'Noto Sans KR', sans-serif;
+            }
+            .table, .card, .accordion, .btn {
+                font-family: 'Noto Sans KR', sans-serif;
+            }
+            
         """)
     return ui.page_fluid(
         custom_style,

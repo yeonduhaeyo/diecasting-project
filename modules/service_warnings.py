@@ -7,16 +7,16 @@ from shared import feature_name_map, feature_name_map_kor
 # 1) Cut-off 기준 정의
 # -----------------------------------
 CUTOFFS = {
-    "num__low_section_speed": {"low": 100, "high": 114},
-    "num__high_section_speed": {"low": 100},
-    "num__coolant_temp": {"low": 20},
+    "num__low_section_speed": {"low": 100, "high": 115},
+    "num__high_section_speed": {"low": 101, "high": 117},
+    "num__coolant_temp": {"low": 29},
     "num__biscuit_thickness": {"low": 42, "high": 56},
-    "num__sleeve_temperature": {"low": 128},
-    "num__cast_pressure": {"low": 314},
-    "num__upper_mold_temp1": {"low": 103},
-    "num__upper_mold_temp2": {"low": 80},
-    "num__lower_mold_temp1": {"low": 92},
-    "num__lower_mold_temp2": {"low": 71},
+    "num__sleeve_temperature": {"low": 147, "high":605},
+    "num__cast_pressure": {"low": 313},
+    "num__upper_mold_temp1": {"low": 102},
+    "num__upper_mold_temp2": {"low": 121 , "high": 235},
+    "num__lower_mold_temp1": {"low": 95},
+    "num__lower_mold_temp2": {"low": 70, "high": 309},
 }
 
 # 공정별 변수 매핑

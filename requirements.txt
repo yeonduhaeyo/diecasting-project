@@ -1,4 +1,11 @@
-faicons
 shiny
-seaborn
+faicons
 pandas
+numpy
+matplotlib
+seaborn
+plotly
+scikit-learn
+xgboost
+shap
+imbalanced-learn
