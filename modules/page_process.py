@@ -93,13 +93,12 @@ def page_process_ui():
                 ui.layout_sidebar(
                     ui.sidebar(
                         ui.h4("관련 변수"),
-                        ui.input_select("selected_var_molten", "변수 선택", choices={"molten_temp": "용탕 온도", "molten_volume": "용탕량"}),
+                        ui.input_select("selected_var_molten", "변수 선택", choices={"molten_temp": "용탕 온도", "molten_volume": "용탕 부피"}),
                     ),
                     # ⭐️ 공정 설명 제목 수정 및 내용 간소화
                     ui.card(
                         ui.h4("공정 원리 및 변수 영향"), 
                         ui.markdown("""
-                        **[원리 요약]**
                         슬러리 제조 전, 알루미늄을 녹여 **최적의 초기 온도와 양**을 준비하는 단계. **주조 안정성**에 직결
 
                         **[핵심 변수 영향]**
@@ -129,18 +128,17 @@ def page_process_ui():
                 ui.layout_sidebar(
                     ui.sidebar(
                         ui.h4("관련 변수"),
-                        ui.input_select("selected_var_slurry", "변수 선택", choices={"sleeve_temperature": "슬리브 온도", "EMS_operation_time": "전자교반 가동시간"}),
+                        ui.input_select("selected_var_slurry", "변수 선택", choices={"sleeve_temperature": "슬리브 온도", "EMS_operation_time": "EMS 작동 시간"}),
                     ),
                     # ⭐️ 공정 설명 제목 수정 및 내용 간소화
                     ui.card(
                         ui.h4("공정 원리 및 변수 영향"), 
                         ui.markdown("""
-                        **[원리 요약]**
                         용탕을 냉각하며 **EMS**(전자 교반)로 금속 입자를 **미세하고 구형**으로 만드는 레오캐스팅의 핵심 단계. 기공과 수축을 억제
                         
                         **[핵심 변수 영향]**
                         * **슬리브 온도 (sleeve_temperature):** 슬러리의 유동성을 결정하며 너무 낮으면 조기 응고 위험 가능성
-                        * **EMS 가동 시간 (EMS_operation_time):** 슬러리 입자의 **크기와 균일도**를 조절하여 제품 강도에 직접 영향을 미침.
+                        * **EMS 작동 시간 (EMS_operation_time):** 슬러리 입자의 **크기와 균일도**를 조절하여 제품 강도에 직접 영향을 미침.
                         """)
                     ),
                     
@@ -152,7 +150,7 @@ def page_process_ui():
                         ),
                         create_management_table_revised([
                             ("슬리브 온도 (sleeve_temperature)", "147", "605"),
-                            ("EMS 가동 시간 (EMS_operation_time)", "-", "-"),
+                            ("EMS 작동 시간 (EMS_operation_time)", "-", "-"),
                         ])
                     ),
                     ui.card(ui.h4("실제 데이터 기반 불량율 변화 그래프"), ui.output_plot("plot_selected_var_quality_slurry"))
@@ -165,19 +163,20 @@ def page_process_ui():
                 ui.layout_sidebar(
                     ui.sidebar(
                         ui.h4("관련 변수"),
-                        ui.input_select("selected_var_injection", "변수 선택", choices={"low_section_speed": "저속 구간 속도","high_section_speed": "고속 구간 속도","cast_pressure": "주입 압력", "biscuit_thickness": "비스킷 두께", "physical_strength": "형체력"}),
+                        ui.input_select("selected_var_injection", "변수 선택", choices={"low_section_speed": "저속 구간 속도","high_section_speed": "고속 구간 속도","cast_pressure": "주조 압력", "biscuit_thickness": "비스킷 두께", "physical_strength": "형체력"}),
                     ),
                     # ⭐️ 공정 설명 제목 수정 및 내용 간소화
                     ui.card(
                         ui.h4("공정 원리 및 변수 영향"), 
                         ui.markdown("""
-                        **[원리 요약]**
                         피스톤으로 슬러리를 금형에 주입하는 단계. 속도와 압력 제어로 **공기 혼입**(기포)을 최소화하는 것이 핵심
                         
                         **[핵심 변수 영향]**
-                        * **저속/고속 구간 속도:** 속도 불균형은 **공기 혼입**을 유발하여 기공 결함을 만듬.
+                        * **저속/고속 구간 속도(low/high section speed):** 속도 불균형은 **공기 혼입**을 유발하여 기공 결함을 만듬.
                         * **주조 압력 (Cast Pressure):** 충전 후 제품의 **치밀도**를 높여 강도를 확보하는 데 결정적
+                        * **비스킷 두께 (biscuit_thickness):** 얇으면 압력 부족으로 인한 치밀도 불량(수축 기공)을 유발하고, 두꺼우면 재료 낭비와 생산 효율 저하를 초래
                         * **형체력 (Physical Strength):** 금형이 벌어지는 것을 막아 **플래시(Flash) 결함**을 방지
+                        
                         """)
                     ),
                     
@@ -205,13 +204,12 @@ def page_process_ui():
                 ui.layout_sidebar(
                     ui.sidebar(
                         ui.h4("관련 변수"),
-                        ui.input_select("selected_var_solid", "변수 선택", choices={"upper_mold_temp1": "상금형 온도1", "lower_mold_temp1": "하금형 온도1", "upper_mold_temp2": "상금형 온도2", "lower_mold_temp2": "하금형 온도2", "Coolant_temperature": "냉각수 온도" }),
+                        ui.input_select("selected_var_solid", "변수 선택", choices={"upper_mold_temp1": "상형 온도1", "lower_mold_temp1": "하형 온도1", "upper_mold_temp2": "상형 온도2", "lower_mold_temp2": "하형 온도2", "Coolant_temperature": "냉각수 온도" }),
                     ),
                     # ⭐️ 공정 설명 제목 수정 및 내용 간소화
                     ui.card(
                         ui.h4("공정 원리 및 변수 영향"), 
                         ui.markdown("""
-                        **[원리 요약]**
                         금형 내에서 금속이 열을 방출하며 고체로 변하는 단계. **최종 제품의 미세 조직과 치수 안정성**을 결정
                         
                         **[핵심 변수 영향]**
@@ -227,10 +225,10 @@ def page_process_ui():
                             style="margin-bottom: 5px;"
                         ),
                         create_management_table_revised([
-                            ("상금형 온도1 (upper_mold_temp1)", "102", "-"),
-                            ("하금형 온도1 (lower_mold_temp1)", "95", "-"),
-                            ("상금형 온도2 (upper_mold_temp2)", "121", "235"),
-                            ("하금형 온도2 (lower_mold_temp2)", "70", "309"),
+                            ("상형 온도1 (upper_mold_temp1)", "102", "-"),
+                            ("하형 온도1 (lower_mold_temp1)", "95", "-"),
+                            ("상형 온도2 (upper_mold_temp2)", "121", "235"),
+                            ("하형 온도2 (lower_mold_temp2)", "70", "309"),
                             ("냉각수 온도 (Coolant_temperature)", "29", "-"),
                         ])
                     ),

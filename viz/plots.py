@@ -129,10 +129,10 @@ def plot_failrate_cutoff_dual_fast(df: pd.DataFrame, var: str, ma_window: int = 
         ma_failrates = failrate_series.rolling(window=ma_window, min_periods=1, center=True).mean() 
 
         # Raw 불량률 (빨간색)
-        ax.plot(thr_arr, failrate_arr, color='red', marker='o', linestyle='-', alpha=0.7, label='Raw 불량률')
+        ax.plot(thr_arr, failrate_arr, color='#4B4B4B', marker='o', linestyle='-', alpha=0.7, label='불량률')
         
         # 이동 평균선 (주황색)
-        ax.plot(thr_arr, ma_failrates.tolist(), color='orange', linestyle='--', alpha=0.6, label=f'{ma_window}-점 MA') 
+        ax.plot(thr_arr, ma_failrates.tolist(), color='blue', linestyle='-', alpha=0.6, label=f'{ma_window}-점 MA') 
         
         ax.set_title(f'{var}: {title_suffix}', fontsize=12)
         ax.set_xlabel(f'{var} 임계값', fontsize=10)
@@ -142,15 +142,15 @@ def plot_failrate_cutoff_dual_fast(df: pd.DataFrame, var: str, ma_window: int = 
         
         # ⭐️ 1차 Cut-off 시각화 (빨간불: 붕괴 마지노선)
         if cutoff_raw is not None and not hide_cutoff_line:
-            ax.axvline(cutoff_raw, color='blue', linestyle='-', linewidth=2, 
-                       label=f'1차 붕괴 Cut-off ({cutoff_raw})') 
+            ax.axvline(cutoff_raw, color='red', linestyle='--', linewidth=2, 
+                       label=f'불량율 기반 Cut-off ({cutoff_raw})') 
                        
         # ⭐️ 2차 Cut-off 시각화 (노란불: 예방적 경고)
         if cutoff_ma is not None and not hide_cutoff_line:
             # 1차 Cut-off와 2차 Cut-off가 동일하지 않고, 2차 Cut-off가 1차보다 덜 위험할 때만 표시
             if cutoff_ma != cutoff_raw:
                 ax.axvline(cutoff_ma, color='gold', linestyle='--', linewidth=2, 
-                           label=f'2차 MA 경고 Cut-off ({cutoff_ma})')
+                           label=f'MA 주의 Cut-off ({cutoff_ma})')
         
         # 범례 표시
         ax.legend(loc='upper right', fontsize=8)
