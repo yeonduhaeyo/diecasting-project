@@ -106,10 +106,10 @@ def shap_based_warning(process: str,
     shap_values = shap_values_state.get()
     X = X_input_state.get()
     X_raw = X_input_raw.get()
-    print("-------------------------------------1")
-    print(X)
-    print("-------------------------------------2")
-    print(X_raw)
+    # print("-------------------------------------1")
+    # print(X)
+    # print("-------------------------------------2")
+    # print(X_raw)
     pred = pred_state.get() if pred_state is not None else None
 
     # 값 없는 경우

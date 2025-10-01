@@ -1,433 +1,391 @@
-# modules/adjustment_guide.py
+# modules/service_adjustment.py
+
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Tuple, Optional
-import copy
+from typing import Dict, List, Tuple
 
-# -----------------------------------
-# 1) 변수 조정 설정 (간소화)
-# -----------------------------------
-# 변수별 조정 스텝 크기 (표준편차의 15% 기준)
+
+# ============================================
+# 1) 설정값
+# ============================================
 ADJUSTMENT_STEP = {
-    "num__production_cycletime": 2.1,
-    "num__facility_operation_cycleTime": 1.8,
-    "num__molten_volume": 5.6,
-    "num__molten_temp": 2.1,
-    "num__sleeve_temperature": 14.5,
-    "num__cast_pressure": 5.4,
-    "num__biscuit_thickness": 3.8,
-    "num__low_section_speed": 1.9,
-    "num__high_section_speed": 2.3,
-    "num__physical_strength": 5.4,
-    "num__upper_mold_temp1": 7.3,
-    "num__upper_mold_temp2": 4.1,
-    "num__lower_mold_temp1": 8.3,
-    "num__lower_mold_temp2": 6.7,
-    "num__coolant_temp": 0.4,
+    "molten_temp": 2.1,
+    "molten_volume": 5.6,
+    "sleeve_temperature": 14.5,
+    "EMS_operation_time": 1.0,  # ✅ 추가
+    "cast_pressure": 5.4,
+    "biscuit_thickness": 3.8,
+    "low_section_speed": 1.9,
+    "high_section_speed": 2.3,
+    "physical_strength": 5.4,
+    "upper_mold_temp1": 7.3,
+    "upper_mold_temp2": 4.1,
+    "lower_mold_temp1": 8.3,
+    "lower_mold_temp2": 6.7,
+    "coolant_temp": 0.4,
+    "facility_operation_cycleTime": 1.8,
+    "production_cycletime": 2.1,
+    "count": 10.0,  # ✅ 추가
 }
 
-# 양품 샘플들의 평균값 (안전 경계선)
 GOOD_SAMPLE_MEANS = {
-    "num__production_cycletime": 122.7,
-    "num__facility_operation_cycleTime": 121.3,
-    "num__molten_volume": 88.9,
-    "num__molten_temp": 720.2,
-    "num__sleeve_temperature": 446.5,
-    "num__cast_pressure": 328.5,
-    "num__biscuit_thickness": 49.9,
-    "num__low_section_speed": 110.0,
-    "num__high_section_speed": 112.7,
-    "num__physical_strength": 701.9,
-    "num__upper_mold_temp1": 184.9,
-    "num__upper_mold_temp2": 163.3,
-    "num__lower_mold_temp1": 202.5,
-    "num__lower_mold_temp2": 196.3,
-    "num__coolant_temp": 32.5,
+    "molten_temp": 720.2,
+    "molten_volume": 88.9,
+    "sleeve_temperature": 446.5,
+    "EMS_operation_time": 15.0,  # ✅ 추가 (적절한 값으로 설정)
+    "cast_pressure": 328.5,
+    "biscuit_thickness": 49.9,
+    "low_section_speed": 110.0,
+    "high_section_speed": 112.7,
+    "physical_strength": 701.9,
+    "upper_mold_temp1": 184.9,
+    "upper_mold_temp2": 163.3,
+    "lower_mold_temp1": 202.5,
+    "lower_mold_temp2": 196.3,
+    "coolant_temp": 32.5,
+    "facility_operation_cycleTime": 121.3,
+    "production_cycletime": 122.7,
+    "count": 100.0,  # ✅ 추가
 }
 
-# -----------------------------------
-# 2) Rule 위반 보정 함수
-# -----------------------------------
-def fix_rule_violations(current_sample: pd.Series, 
-                       cutoffs: Dict, 
-                       data_ranges: Dict) -> Tuple[pd.Series, List[str]]:
-    """Rule 위반을 즉시 보정"""
-    adjusted_sample = current_sample.copy()
-    adjustments = []
-    
-    for var in current_sample.index:
-        if var not in cutoffs:
-            continue
-            
-        current_val = float(current_sample[var])
-        cut = cutoffs[var]
-        data_range = data_ranges[var]
-        
-        # 하한선 위반 체크
-        if "low" in cut and current_val < cut["low"]:
-            target_val = min(cut["low"], data_range["max"])
-            adjusted_sample[var] = target_val
-            adjustments.append(f"{var}: {current_val:.1f} → {target_val:.1f} (하한선 보정)")
-        
-        # 상한선 위반 체크  
-        if "high" in cut and current_val > cut["high"]:
-            target_val = max(cut["high"], data_range["min"])
-            adjusted_sample[var] = target_val
-            adjustments.append(f"{var}: {current_val:.1f} → {target_val:.1f} (상한선 보정)")
-    
-    return adjusted_sample, adjustments
+DATA_RANGES = {
+    "molten_temp": {"min": 70, "max": 750},
+    "molten_volume": {"min": -1, "max": 600},
+    "sleeve_temperature": {"min": 20, "max": 1000},
+    "EMS_operation_time": {"min": 3, "max": 25},  # ✅ 추가
+    "cast_pressure": {"min": 40, "max": 370},
+    "biscuit_thickness": {"min": 0, "max": 450},
+    "low_section_speed": {"min": 0, "max": 200},
+    "high_section_speed": {"min": 0, "max": 400},
+    "physical_strength": {"min": 0, "max": 750},
+    "upper_mold_temp1": {"min": 10, "max": 400},
+    "upper_mold_temp2": {"min": 10, "max": 250},
+    "lower_mold_temp1": {"min": 10, "max": 400},
+    "lower_mold_temp2": {"min": 10, "max": 550},
+    "coolant_temp": {"min": 0, "max": 50},
+    "facility_operation_cycleTime": {"min": 60, "max": 500},
+    "production_cycletime": {"min": 60, "max": 500},
+    "count": {"min": 1, "max": 1000},  # ✅ 추가
+}
 
-# -----------------------------------
-# 3) SHAP 기반 우선순위 계산
-# -----------------------------------
-def calculate_adjustment_priority(shap_contributions: Dict) -> List[Tuple[str, float, str]]:
-    """SHAP 기여도로 우선순위 계산 + 조정 방향 자동 결정"""
+# 규칙 컷오프 (원본 변수명 기준)
+CUTOFFS = {
+    "low_section_speed": {"low": 100, "high": 114},
+    "high_section_speed": {"low": 100},
+    "coolant_temp": {"low": 20},
+    "biscuit_thickness": {"low": 42, "high": 56},
+    "sleeve_temperature": {"low": 128},
+    "cast_pressure": {"low": 314},
+    "upper_mold_temp1": {"low": 103},
+    "upper_mold_temp2": {"low": 80},
+    "lower_mold_temp1": {"low": 92},
+    "lower_mold_temp2": {"low": 71},
+}
+
+# SHAP 변수명 → 원본 변수명 매핑 (Force Plot 기준 추가)
+SHAP_TO_RAW_MAP = {
+    "num__molten_temp": "molten_temp",
+    "num__molten_volume": "molten_volume", 
+    "num__sleeve_temperature": "sleeve_temperature",
+    "num__EMS_operation_time": "EMS_operation_time",
+    "num__cast_pressure": "cast_pressure",
+    "num__biscuit_thickness": "biscuit_thickness",
+    "num__low_section_speed": "low_section_speed",
+    "num__high_section_speed": "high_section_speed",
+    "num__physical_strength": "physical_strength",
+    "num__upper_mold_temp1": "upper_mold_temp1",
+    "num__upper_mold_temp2": "upper_mold_temp2",
+    "num__lower_mold_temp1": "lower_mold_temp1",
+    "num__lower_mold_temp2": "lower_mold_temp2",
+    "num__coolant_temp": "coolant_temp",
+    "num__facility_operation_cycleTime": "facility_operation_cycleTime",
+    "num__production_cycletime": "production_cycletime",
+    "num__count": "count",
+    
+    # Force Plot 한글명 매핑 추가
+    "고속 구간 속도": "high_section_speed",
+    "용탕 부피": "molten_volume",
+    "상형 온도2(℃)": "upper_mold_temp2",
+    "하형 온도1(℃)": "lower_mold_temp1",
+    "상형 온도1(℃)": "upper_mold_temp1",
+    "EMS 작동시간(s)": "EMS_operation_time",
+}
+
+
+# ============================================
+# 2) 예측 함수 (원본 데이터 → 전처리 → 예측)
+# ============================================
+def predict_with_raw_data(raw_sample, preprocessor, model) -> float:
+    """원본 데이터를 전처리 후 모델 예측"""
+    if isinstance(raw_sample, pd.Series):
+        raw_df = raw_sample.to_frame().T
+    elif isinstance(raw_sample, pd.DataFrame):
+        raw_df = raw_sample
+    else:
+        raise ValueError("raw_sample must be a pandas Series or DataFrame")
+
+    # 전처리 수행
+    transformed = preprocessor.transform(raw_df)
+    prob = model.predict_proba(transformed)[0, 1]
+    return float(prob)
+
+
+# ============================================
+# 3) Rule 기반 보정 (원본 값 기준)
+# ============================================
+def fix_rule_violations(raw_sample: pd.Series) -> Tuple[pd.Series, List[str]]:
+    """원본 변수명 기준으로 Rule 기반 보정"""
+    adjusted = raw_sample.copy()
+    logs = []
+
+    for var, cut in CUTOFFS.items():
+        if var not in raw_sample:
+            continue
+        # ✅ FutureWarning 수정
+        orig_val = float(raw_sample[var].iloc[0]) if hasattr(raw_sample[var], 'iloc') else float(raw_sample[var])
+        rng = DATA_RANGES.get(var, {"min": -np.inf, "max": np.inf})
+
+        if "low" in cut and orig_val < cut["low"]:
+            new_val = max(cut["low"], rng["min"])
+            adjusted[var] = new_val
+            logs.append(f"{var}: {orig_val:.1f} → {new_val:.1f} (상향 조정)")
+        if "high" in cut and orig_val > cut["high"]:
+            new_val = min(cut["high"], rng["max"])
+            adjusted[var] = new_val
+            logs.append(f"{var}: {orig_val:.1f} → {new_val:.1f} (하향 조정)")
+
+    return adjusted, logs
+
+
+# ============================================
+# 4) SHAP 기반 우선순위 (SHAP 변수명 → 원본 변수명 변환)
+# ============================================
+def calculate_priority(shap_values: Dict) -> List[Tuple[str, float, str]]:
+    """SHAP 변수명을 원본 변수명으로 변환하여 우선순위 계산"""
     priorities = []
     
-    for var, shap_val in shap_contributions.items():
-        if shap_val > 0:
-            # SHAP 값이 양수 → 변수값을 낮춰야 불량률 감소
+    print("🔍 SHAP 값 분석 (전체):")
+    print(f"   총 {len(shap_values)}개 변수 수신")
+    
+    # 변수별 처리 (정렬하지 않고 모든 변수 확인)
+    for shap_var, val in shap_values.items():
+        # SHAP 변수명을 원본 변수명으로 변환
+        raw_var = SHAP_TO_RAW_MAP.get(shap_var, shap_var)
+        
+        print(f"   {shap_var} → {raw_var}: {val:.4f} (절댓값: {abs(val):.4f})")
+        
+        # 매핑되지 않은 변수는 건너뛰기
+        if raw_var not in ADJUSTMENT_STEP:
+            print(f"      ⚠️ 스킵: (설정값 없음)")
+            continue
+        
+        if abs(val) < 1e-6:  # 거의 0인 값은 제외
+            print(f"      ⚠️ 스킵: 영향도 너무 낮음")
+            continue
+        
+        if val > 0:
+            # 양수: 불량률 증가 요인 → 변수값 감소 필요
             direction = "↓"
-            priority_score = shap_val
-        elif shap_val < 0:
-            # SHAP 값이 음수 → 변수값을 높여야 불량률 감소
-            direction = "↑"  
-            priority_score = abs(shap_val)
-        else:
-            continue
-        
-        priorities.append((var, priority_score, direction))
+            priorities.append((raw_var, abs(val), direction))  # 절댓값으로 우선순위
+            print(f"      ✅ 추가: {direction} (불량률↑ → 값 감소)")
+        elif val < 0:
+            # 음수: 불량률 감소 요인 → 변수값 증가 필요
+            direction = "↑"
+            priorities.append((raw_var, abs(val), direction))  # 절댓값으로 우선순위
+            print(f"      ✅ 추가: {direction} (불량률↓ → 값 증가)")
     
-    priorities.sort(key=lambda x: x[1], reverse=True)
-    return priorities
+    # 절댓값이 큰 순서대로 정렬 (불량 예측 기여도가 높은 순)
+    sorted_priorities = sorted(priorities, key=lambda x: x[1], reverse=True)
+    
+    print(f"\n📊 최종 조정 우선순위 (절댓값 기준):")
+    for i, (var, importance, dir) in enumerate(sorted_priorities[:10], 1):
+        print(f"   {i}. {var}: {importance:.4f} ({dir})")
+        
+    return sorted_priorities
 
-# -----------------------------------
-# 4) 1-변수 그리디 조정 (양방향 평균 제약 적용)
-# -----------------------------------
-def greedy_variable_adjustment(current_sample: pd.Series,
-                              model,
-                              target_prob: float,
-                              priority_list: List[Tuple[str, float, str]],
-                              adjustment_steps: Dict,
-                              data_ranges: Dict,
-                              good_means: Dict,
-                              max_iterations: int = 10) -> Tuple[pd.Series, List[str], float]:
-    """
-    그리디 방식 변수 조정 (양방향 평균 제약 포함)
-    
-    핵심 로직:
-    - 상향 조정(↑): 현재값 < 평균 → 평균 이하까지만 조정 가능
-    - 하향 조정(↓): 현재값 > 평균 → 평균 이상까지만 조정 가능
-    - 현재값 = 평균: 조정 불가
-    """
-    
-    adjusted_sample = current_sample.copy()
-    adjustments = []
-    safety_stops = []
-    
-    current_prob = float(model.predict_proba(adjusted_sample.values.reshape(1, -1))[0, 1])
-    
-    for var, priority_score, shap_direction in priority_list:
-        if current_prob <= target_prob:
-            break
-            
-        if var not in adjustment_steps or var not in data_ranges:
-            continue
-            
-        step_size = adjustment_steps[var]
-        data_range = data_ranges[var]
-        good_mean = good_means.get(var, None)
-        current_val = float(adjusted_sample[var])
-        
-        # SHAP 방향 결정
-        if shap_direction == "↓":
-            target_direction = "down"
-        else:
-            target_direction = "up"
-        
-        # 기본 데이터 범위 체크
-        if target_direction == "up" and current_val >= data_range["max"]:
-            continue
-        if target_direction == "down" and current_val <= data_range["min"]:
-            continue
-        
-        # ====================================================
-        # 양방향 평균 제약 체크
-        # ====================================================
-        if good_mean is not None:
-            # 상향 조정: 현재값이 평균 이상이면 조정 불가
-            if target_direction == "up" and current_val >= good_mean:
-                safety_stops.append(
-                    f"{var}: 상향 조정 불가 (현재값 {current_val:.1f} ≥ 양품평균 {good_mean:.1f})"
-                )
-                continue
-            
-            # 하향 조정: 현재값이 평균 이하이면 조정 불가
-            if target_direction == "down" and current_val <= good_mean:
-                safety_stops.append(
-                    f"{var}: 하향 조정 불가 (현재값 {current_val:.1f} ≤ 양품평균 {good_mean:.1f})"
-                )
-                continue
-        
-        # ====================================================
-        # 단계적 조정 시뮬레이션
-        # ====================================================
-        best_improvement = 0
-        best_new_val = current_val
-        test_val = current_val
-        
-        for step in range(max_iterations):
-            if target_direction == "up":
-                # 상향 조정: 데이터 최댓값과 양품 평균 중 작은 값까지만
-                upper_limit = data_range["max"]
-                if good_mean is not None:
-                    upper_limit = min(upper_limit, good_mean)
-                
-                new_val = min(test_val + step_size, upper_limit)
-                
-                # 양품 평균 도달 시 중단
-                if good_mean is not None and new_val >= good_mean:
-                    if step > 0:
-                        safety_stops.append(
-                            f"{var}: 양품평균({good_mean:.1f}) 도달로 {best_new_val:.1f}에서 조정 중단"
-                        )
-                    break
-            
-            else:  # target_direction == "down"
-                # 하향 조정: 데이터 최솟값과 양품 평균 중 큰 값까지만
-                lower_limit = data_range["min"]
-                if good_mean is not None:
-                    lower_limit = max(lower_limit, good_mean)
-                
-                new_val = max(test_val - step_size, lower_limit)
-                
-                # 양품 평균 도달 시 중단
-                if good_mean is not None and new_val <= good_mean:
-                    if step > 0:
-                        safety_stops.append(
-                            f"{var}: 양품평균({good_mean:.1f}) 도달로 {best_new_val:.1f}에서 조정 중단"
-                        )
-                    break
-            
-            # 예측 확률 계산
-            temp_sample = adjusted_sample.copy()
-            temp_sample[var] = new_val
-            new_prob = float(model.predict_proba(temp_sample.values.reshape(1, -1))[0, 1])
-            
-            improvement = current_prob - new_prob
-            if improvement > best_improvement:
-                best_improvement = improvement
-                best_new_val = new_val
-            elif improvement < 0:
-                break
-            
-            test_val = new_val
-            
-            # 경계 도달 시 중단
-            if (target_direction == "up" and new_val >= upper_limit) or \
-               (target_direction == "down" and new_val <= lower_limit):
-                break
-        
-        # 최적 조정 적용 (1% 이상 개선시)
-        if best_improvement > 0.01:
-            adjusted_sample[var] = best_new_val
-            current_prob -= best_improvement
-            direction_symbol = "↑" if target_direction == "up" else "↓"
-            
-            # 양품 평균 정보 추가
-            constraint_info = ""
-            if good_mean is not None:
-                if target_direction == "up":
-                    constraint_info = f" (평균 {good_mean:.1f} 이하 유지)"
-                else:
-                    constraint_info = f" (평균 {good_mean:.1f} 이상 유지)"
-            
-            adjustments.append(
-                f"{var}: {current_val:.1f} → {best_new_val:.1f} {direction_symbol} "
-                f"(-{best_improvement:.3f}){constraint_info}"
-            )
-    
-    # 안전장치 정보 추가
-    if safety_stops:
-        adjustments.extend([f"[제약조건] {msg}" for msg in safety_stops])
-    
-    return adjusted_sample, adjustments, current_prob
 
-# -----------------------------------
-# 5) 메인 R-SG 알고리즘
-# -----------------------------------
-def rsg_adjustment_guide(current_sample: pd.Series,
-                        model,
-                        shap_values: Dict,
-                        cutoffs: Dict,
-                        data_ranges: Dict,
-                        target_prob: float = 0.30) -> Dict:
+# ============================================
+# 5) 메인 알고리즘 (R-SG) - 수정된 버전
+# ============================================
+def adjust_variables_to_target(
+    raw_sample: pd.Series,
+    shap_values: Dict,
+    preprocessor,
+    model,
+    target_prob: float = 0.3,
+    max_iterations: int = 10
+) -> Dict:
     """
-    Rule-first, SHAP-guided Greedy 변수 조정 가이드
-    (양방향 평균 제약 적용)
+    R-SG 알고리즘: Rule 기반 + SHAP Greedy
+    
+    Args:
+        raw_sample: 원본 입력 데이터 (사용자 입력값)
+        shap_values: SHAP 값들 (전처리된 변수명 기준)
+        preprocessor: 전처리기
+        model: 모델
+        target_prob: 목표 불량률
+        max_iterations: 최대 반복 횟수
     """
     
-    initial_prob = float(model.predict_proba(current_sample.values.reshape(1, -1))[0, 1])
-    
+    # ✅ SHAP Explanation 객체 자동 변환
+    if not isinstance(shap_values, dict):
+        if hasattr(shap_values, "values") and hasattr(shap_values, "feature_names"):
+            vals = shap_values.values[0]
+            if vals.ndim == 2 and vals.shape[1] == 2:  # 이진 분류 shap
+                vals = vals[:, 1]
+            shap_values = dict(zip(shap_values.feature_names, vals))
+        else:
+            raise ValueError("shap_values must be dict or shap.Explanation")
+
+    # 초기 예측
+    initial_prob = predict_with_raw_data(raw_sample, preprocessor, model)
+
     result = {
-        'initial_prob': initial_prob,
-        'target_prob': target_prob,
-        'success': False,
-        'final_prob': initial_prob,
-        'rule_adjustments': [],
-        'shap_adjustments': [],
-        'initial_sample': current_sample.copy(),
-        'final_sample': current_sample.copy(),
-        'explanation': ""
+        "initial_prob": initial_prob,
+        "target_prob": target_prob,
+        "final_prob": initial_prob,
+        "rule_adjustments": [],
+        "shap_adjustments": [],
+        "initial_sample": raw_sample.to_dict(),
+        "final_sample": raw_sample.to_dict(),
+        "success": False,
     }
+
+    # ✅ Step 1: Rule 기반 보정 (원본 값 기준)
+    print("🔧 Step 1: Rule 기반 보정 시작...")
+    adjusted_raw, rule_logs = fix_rule_violations(raw_sample)
+    prob_after_rule = predict_with_raw_data(adjusted_raw, preprocessor, model)
     
-    # 단계 1: Rule 위반 즉시 보정
-    adjusted_sample, rule_adjustments = fix_rule_violations(
-        current_sample, cutoffs, data_ranges
-    )
+    result["rule_adjustments"] = rule_logs
+    result["final_sample"] = adjusted_raw.to_dict()
+    result["final_prob"] = prob_after_rule
     
-    prob_after_rule = float(model.predict_proba(adjusted_sample.values.reshape(1, -1))[0, 1])
-    
-    result['rule_adjustments'] = rule_adjustments
-    result['final_sample'] = adjusted_sample
-    result['final_prob'] = prob_after_rule
-    
-    # Rule 보정만으로 목표 달성?
+    print(f"   Rule 보정 후: {prob_after_rule:.3f}")
+
     if prob_after_rule <= target_prob:
-        result['success'] = True
-        result['explanation'] = f"규칙 위반 보정만으로 목표 달성 ({initial_prob:.3f} → {prob_after_rule:.3f})"
+        print("✅ Rule 보정만으로 목표 달성!")
+        result["success"] = True
         return result
+
+    # ✅ Step 2: SHAP 기반 Greedy (SHAP → 원본 변수명 변환)
+    print("🎯 Step 2: SHAP 기반 최적화 시작...")
+    current_raw = adjusted_raw.copy()
+    best_prob = prob_after_rule
     
-    # 단계 2: SHAP 기반 우선순위 계산
-    priority_list = calculate_adjustment_priority(shap_values)
-    
-    # 단계 3: 그리디 조정 (양방향 평균 제약 적용)
-    final_sample, shap_adjustments, final_prob = greedy_variable_adjustment(
-        adjusted_sample, model, target_prob, priority_list,
-        ADJUSTMENT_STEP, data_ranges, GOOD_SAMPLE_MEANS
-    )
-    
-    result['shap_adjustments'] = shap_adjustments
-    result['final_sample'] = final_sample
-    result['final_prob'] = final_prob
-    
-    if final_prob <= target_prob:
-        result['success'] = True
-        result['explanation'] = f"단계별 조정으로 목표 달성 ({initial_prob:.3f} → {final_prob:.3f})"
-    else:
-        result['explanation'] = f"추가 조정 필요 ({initial_prob:.3f} → {final_prob:.3f}, 목표: {target_prob:.3f})"
+    # SHAP 변수명을 원본 변수명으로 변환하여 우선순위 계산
+    priority_list = calculate_priority(shap_values)
+    print(f"   우선순위: {[f'{var}({dir})' for var, _, dir in priority_list[:5]]}")
+
+    for var, importance, direction in priority_list:
+        if var not in ADJUSTMENT_STEP or var not in DATA_RANGES:
+            continue
+            
+        # ✅ Series 문제 해결: 명시적으로 스칼라 값 추출
+        val = float(current_raw[var].iloc[0]) if hasattr(current_raw[var], 'iloc') else float(current_raw[var])
+        step = ADJUSTMENT_STEP[var]
+        mean_val = GOOD_SAMPLE_MEANS.get(var)
+        rng = DATA_RANGES[var]
+
+        best_val, val_now = val, val
+        
+        for iteration in range(max_iterations):
+            if direction == "↑":
+                new_val = val_now + step
+                # 범위 제한
+                new_val = min(new_val, rng["max"])
+                # ✅ 양품 평균값 제한 제거 (혼란 방지)
+                # if mean_val: new_val = min(new_val, mean_val)
+            else:  # direction == "↓"
+                new_val = val_now - step
+                # 범위 제한
+                new_val = max(new_val, rng["min"])
+                # ✅ 양품 평균값 제한 제거 (혼란 방지)
+                # if mean_val: new_val = max(new_val, mean_val)
+
+            # 임시로 변수 변경하여 예측
+            temp_raw = current_raw.copy()
+            temp_raw[var] = new_val
+            new_prob = predict_with_raw_data(temp_raw, preprocessor, model)
+
+            if new_prob < best_prob:
+                best_prob, best_val = new_prob, new_val
+                val_now = new_val
+                print(f"   {var}: {val:.1f} → {new_val:.1f} (확률: {new_prob:.3f}) {direction}")
+            else:
+                break
+
+        # 실제 적용
+        if best_val != val:
+            current_raw[var] = best_val
+            # ✅ 실제 변화 방향 확인
+            actual_direction = "↑" if best_val > val else "↓"
+            expected_direction = direction
+            direction_match = "✅" if actual_direction == expected_direction else "❌"
+            
+            result["shap_adjustments"].append(
+                f"{var}: {val:.1f} → {best_val:.1f} ({actual_direction}) {direction_match}"
+            )
+            print(f"   📝 최종: {var} {val:.1f} → {best_val:.1f} (예상:{expected_direction}, 실제:{actual_direction}) {direction_match}")
+
+        result["final_prob"] = best_prob
+
+        if best_prob <= target_prob:
+            print(f"✅ 목표 달성! 최종 확률: {best_prob:.3f}")
+            break
+
+    result["final_sample"] = current_raw.to_dict()
+    result["success"] = result["final_prob"] <= target_prob
     
     return result
 
-# -----------------------------------
-# 6) 조정 결과 출력 함수
-# -----------------------------------
-def print_adjustment_summary(result: Dict, feature_name_map: Dict):
-    """조정 결과를 사용자 친화적으로 출력"""
-    
-    print("=" * 70)
-    print("🎯 불량률 개선 조정 가이드")
-    print("=" * 70)
-    
-    # 현황 요약
-    print(f"\n📊 목표: 불량확률 {result['target_prob']:.1%} 이하 달성")
-    print(f"   현재: {result['initial_prob']:.1%} → 조정 후: {result['final_prob']:.1%}")
-    
-    if result['success']:
-        print("   ✅ 결과: 목표 달성!")
-    else:
-        print("   ⚠️  결과: 추가 조정 필요")
-    
-    # 규칙 기반 조정
-    if result['rule_adjustments']:
-        print("\n" + "=" * 70)
-        print("🔧 1단계: 필수 조정 (규칙 위반 해결)")
-        print("=" * 70)
-        for adj in result['rule_adjustments']:
-            var, change = adj.split(': ', 1)
-            pretty_name = feature_name_map.get(var, var)
-            print(f"  • {pretty_name}: {change}")
-    
-    # SHAP 기반 조정
-    if result['shap_adjustments']:
-        print("\n" + "=" * 70)
-        print("🎯 2단계: AI 기반 최적화 (SHAP + 양방향 평균 제약)")
-        print("=" * 70)
-        for adj in result['shap_adjustments']:
-            if adj.startswith('[제약조건]'):
-                print(f"  ⚠️  {adj[7:]}")
-            else:
-                var, change = adj.split(': ', 1)
-                pretty_name = feature_name_map.get(var, var)
-                print(f"  • {pretty_name}: {change}")
-    
-    # 조정 없음
-    if not result['rule_adjustments'] and not result['shap_adjustments']:
-        print("\n✅ 조정 필요 없음: 모든 변수가 정상 범위 내")
-    
-    print("\n" + "=" * 70)
 
-# -----------------------------------
+# ============================================
+# 6) 출력 요약
+# ============================================
+def print_adjustment_summary(result: Dict, feature_name_map: Dict = None):
+    print("="*60)
+    print("📊 불량률 개선 조정 가이드")
+    print(f"초기: {result['initial_prob']:.1%} → 최종: {result['final_prob']:.1%} (목표 {result['target_prob']:.1%})")
+    print("✅ 목표 달성!" if result["success"] else "⚠️ 목표 미달성")
+
+    if result["rule_adjustments"]:
+        print("\n🔧 Rule 기반 조정")
+        for adj in result["rule_adjustments"]:
+            var, change = adj.split(": ", 1)
+            name = feature_name_map.get(var, var) if feature_name_map else var
+            print(f"  • {name}: {change}")
+
+    if result["shap_adjustments"]:
+        print("\n🎯 SHAP 기반 조정")
+        for adj in result["shap_adjustments"]:
+            var, change = adj.split(": ", 1)
+            name = feature_name_map.get(var, var) if feature_name_map else var
+            print(f"  • {name}: {change}")
+    print("="*60)
+
+
+# ============================================
 # 7) 사용 예시
-# -----------------------------------
-def example_usage():
-    """실제 사용 예시"""
-    print("【R-SG 알고리즘 사용 예시 (양방향 평균 제약 적용)】\n")
-    
-    # 가상 데이터
-    current_sample = pd.Series({
-        'num__cast_pressure': 350,      # 평균(328.5)보다 높음 → 하향 조정 가능
-        'num__coolant_temp': 25,        # 평균(32.5)보다 낮음 → 상향 조정 가능
-        'num__low_section_speed': 105,  # 평균(110.0)보다 낮음
-        'num__biscuit_thickness': 55,   # 평균(49.9)보다 높음
+# ============================================
+def example_usage(preprocessor, model):
+    """사용 예시"""
+    # 원본 입력 데이터 (사용자 입력값)
+    raw_sample = pd.Series({
+        "cast_pressure": 350,
+        "coolant_temp": 25,
+        "low_section_speed": 105,
+        "biscuit_thickness": 55,
     })
-    
-    shap_values = {
-        'num__cast_pressure': 0.25,        # 양수 → 낮춰야 함 (↓)
-        'num__coolant_temp': -0.15,        # 음수 → 높여야 함 (↑)
-        'num__low_section_speed': -0.05,   # 음수 → 높여야 함 (↑)
-        'num__biscuit_thickness': 0.08,    # 양수 → 낮춰야 함 (↓)
-    }
-    
-    feature_name_map = {
-        'num__cast_pressure': '사출압력',
-        'num__coolant_temp': '냉각온도',
-        'num__low_section_speed': '저속구간속도',
-        'num__biscuit_thickness': '비스킷두께'
-    }
-    
-    print("📋 현재 샘플:")
-    for var, val in current_sample.items():
-        pretty_name = feature_name_map.get(var, var)
-        mean_val = GOOD_SAMPLE_MEANS.get(var, 0)
-        comparison = ">" if val > mean_val else "<" if val < mean_val else "="
-        print(f"  {pretty_name}: {val} {comparison} 평균 {mean_val}")
-    
-    print("\n📊 SHAP 기여도 및 조정 방향:")
-    for var, shap_val in shap_values.items():
-        pretty_name = feature_name_map.get(var, var)
-        direction = "↓ (낮추기)" if shap_val > 0 else "↑ (높이기)"
-        current_val = current_sample[var]
-        mean_val = GOOD_SAMPLE_MEANS.get(var, 0)
-        
-        # 조정 가능 여부 판단
-        can_adjust = False
-        if shap_val > 0 and current_val > mean_val:  # 낮춰야 하는데 평균보다 높음
-            can_adjust = True
-            constraint = f"평균({mean_val}) 이상까지만"
-        elif shap_val < 0 and current_val < mean_val:  # 높여야 하는데 평균보다 낮음
-            can_adjust = True
-            constraint = f"평균({mean_val}) 이하까지만"
-        else:
-            constraint = "조정 불가 (평균 제약)"
-        
-        status = "✓" if can_adjust else "✗"
-        print(f"  {status} {pretty_name}: {shap_val:+.3f} → {direction} | {constraint}")
-    
-    print("\n" + "=" * 70)
-    print("\n💡 실제 사용 시:")
-    print("result = rsg_adjustment_guide(current_sample, model, shap_values, CUTOFFS, DATA_RANGES)")
-    print("print_adjustment_summary(result, feature_name_map)")
 
-if __name__ == "__main__":
-    example_usage()
+    # SHAP 값 (전처리된 변수명 기준)
+    shap_values = {
+        "num__cast_pressure": 0.25,
+        "num__coolant_temp": -0.15,
+        "num__low_section_speed": -0.05,
+        "num__biscuit_thickness": 0.08,
+    }
+
+    result = adjust_variables_to_target(
+        raw_sample, shap_values, preprocessor, model, target_prob=0.3
+    )
+    print_adjustment_summary(result)

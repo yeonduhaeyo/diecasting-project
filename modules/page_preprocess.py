@@ -82,48 +82,65 @@ def page_preprocess_ui():
             # 3. 모델링 준비
             ui.accordion_panel(
                 "3. 모델링 준비",
+
+                # 데이터 분리
+
                 ui.card(
                     ui.card_header("📂 데이터 분리"),
-                    ui.p("8:2 비율, 금형코드 및 불량 라벨(check 변수)에 맞춘 층화 샘플링")
+                    ui.markdown("""
+        **방법:** 8:2 비율, 금형코드 + 불량 라벨 기준 층화 샘플링  
+        **목적:** 금형별 데이터 편향 방지, 학습 균형 확보
+        """),
+                    ui.HTML('<div class="alert alert-info" role="alert">층화 샘플링 → 데이터 균형 유지</div>')
                 ),
+
                 ui.card(
                     ui.card_header("📈 불량 데이터 오버샘플링"),
-                    ui.p("Train 데이터에서 불량 샘플을 금형코드 비율 유지하며 4배 증강"),
-                    ui.p("SMOTE 적용, 범주형은 Majority Vote 방식 채움"),
-                    ui.p("결과: 오버샘플링 후 불량률 2.6배"),
-                    ui.output_table("sampling_info")
+                    ui.markdown("""
+        - 불량 데이터 4배 증강 (금형 비율 유지)  
+        - SMOTE 적용 (범주형은 Majority Vote 방식)  
+        """),
+                    ui.HTML('<div class="alert alert-danger" role="alert">결과: 실제 불량률 2.6배 ↑</div>')
                 ),
+
                 ui.card(
                     ui.card_header("⚙️ 범주형 / 수치형 처리"),
-                    ui.p("수치형: RobustScaler 적용 (이상치 영향 완화)"),
-                    ui.p("범주형: One-hot Encoding 적용"),
-                    ui.p("MajorityVoteSMOTENC 활용 → 수치형은 보간, 범주형은 다수결 선택"),
-                    ui.output_table("encoding_example")
+                    ui.markdown("""
+        - 수치형 → RobustScaler (이상치 완화)  
+        - 범주형 → One-hot Encoding  
+        - SMOTENC → 수치형은 보간, 범주형은 다수결 선택
+        """),
+                    ui.HTML('<div class="alert alert-info" role="alert">범주형·수치형 각각 맞춤 처리</div>')
                 ),
+
+
+                # 금형코드 분리 근거
                 ui.card(
                     ui.card_header("📌 금형코드별 모델 분리 근거"),
                     ui.markdown("""
-1. 금형 구조 차이 → 유동·결함 메커니즘 달라짐  
-2. 반고상 주조 특성 → 온도·구조에 따라 불량 양상 달라짐  
-3. 산업 표준(NADCA PQ²) → 금형별 조건 관리 권장  
-4. 데이터 과학적 이유 → 섞으면 분포 왜곡 → 분리해야 패턴 학습 가능  
+            1. 금형 구조 차이 → 유동·결함 메커니즘 달라짐  
+            2. 반고상 주조 특성 → 온도·구조 차이에 따른 불량 양상  
+            3. 산업 표준(NADCA PQ²) → 금형별 조건 관리 필요  
+            4. 데이터 과학적 근거 → 섞으면 분포 왜곡, 분리 시 패턴 학습 가능  
 
-👉 결론: 금형코드별 별도 모델 구축이 타당함
-""")
+            👉 결론: 금형코드별 별도 모델 구축이 타당함
+            """)
                 ),
+
+                # Recall·F2 점수 강조
                 ui.card(
                     ui.card_header("⚠️ Recall·F2 중심 모델 목표"),
                     ui.markdown("""
-- Recall = 불량을 놓치지 않고 잡는 능력  
-- Precision = 정상인데 불량으로 잘못 잡는 비율  
+            - Recall = 불량을 놓치지 않고 잡는 능력  
+            - Precision = 정상인데 불량으로 잘못 잡는 비율  
 
-자동차 안전부품은 미검(FN) 최소화가 핵심임  
-Accuracy보다 Recall을 우선시해야 함  
+            자동차 안전부품은 **미검(FN) 최소화**가 핵심임  
+            Accuracy보다 Recall을 우선시해야 함  
 
-📍 F2-score = Recall에 4배 가중치 → 불량 검출 극대화에 적합함  
+            📍 F2-score = Recall에 4배 가중치 → 불량 검출 극대화에 적합  
 
-👉 결론: Recall·F2 기준 채택은 국제 표준(IATF 16949, ISO 26262)과 Zero Defect 목표에 부합함
-""")
+            👉 결론: Recall·F2 기준 채택은 국제 표준(IATF 16949, ISO 26262)과 Zero Defect 목표에 부합함
+            """)
                 )
             ),
 
@@ -157,16 +174,43 @@ Accuracy보다 Recall을 우선시해야 함
                 )
             ),
 
-            # 5. 분석
-            ui.accordion_panel("5. 분석"),
-
             # 6. 점수화 알고리즘
             ui.accordion_panel("점수화 알고리즘 설명", tbl.shap_markdown),
+            
+            ui.accordion_panel(
+                "변수 조정 가이드",
+                tbl.feature_markdown
+                
+            ),
 
             id="preprocess_panel",
             open=False,
             multiple=False
         ),
+        
+
+            
+    
+    ui.hr(),
+    ui.div(
+        ui.download_button(
+            "btn_download_prep", 
+            "데이터 전처리 보고서 다운로드",
+            class_="mb-2",  # margin-bottom 조금 추가
+            style="background-color:#2C3E50; color:white; font-weight:600; \
+                border-radius:10px; padding:10px 20px; border:none; \
+                box-shadow:0 4px 6px rgba(0,0,0,0.2);"
+        ),
+        ui.download_button(
+            "btn_download_model", 
+            "예측 모델 분석 보고서 다운로드",
+            class_="mb-2",  # margin-bottom 조금 추가
+            style="background-color:#2C3E50; color:white; font-weight:600; \
+                border-radius:10px; padding:10px 20px; border:none; \
+                box-shadow:0 4px 6px rgba(0,0,0,0.2);"
+        ),
+        style="display:flex; gap:12px;"  # 버튼 간격 띄우기
+    )
     )
 
 
@@ -211,16 +255,15 @@ def page_preprocess_server(input, output, session):
             return pd.DataFrame()
         
     @output
-    @render.plot
-    def missing_plot():
-        import matplotlib.pyplot as plt
-        fig, ax = plt.subplots()
-        ax.text(0.5, 0.5, "결측치 시각화 자리", ha="center", va="center")
-        return fig
-
+    @render.download(filename="데이터전처리보고서.pdf")  # 다운로드될 때 사용자에게 보이는 파일명
+    def btn_download_prep():
+        file_path = "www/files/전처리보고서.pdf"  # ✅ 서버에 미리 넣어둔 PDF 경로
+        with open(file_path, "rb") as f:
+            yield from f  # 파일 내용을 그대로 전송
+            
     @output
-    @render.table
-    def missing_table():
-        import pandas as pd
-        return pd.DataFrame({"Column": ["A", "B"], "Missing %": [10, 5]})
-
+    @render.download(filename="예측모델분석보고서.pdf")  # 다운로드될 때 사용자에게 보이는 파일명
+    def btn_download_model():
+        file_path = "www/files/모델보고서.pdf"  # ✅ 서버에 미리 넣어둔 PDF 경로
+        with open(file_path, "rb") as f:
+            yield from f  # 파일 내용을 그대로 전송

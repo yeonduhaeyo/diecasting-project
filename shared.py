@@ -103,6 +103,15 @@ rf_explainers = {
     
 }
 
+# shared.py에 추가
+rf_preprocessors = {
+    "8412": rf_models["8412"].named_steps["preprocess"],
+    "8573": rf_models["8573"].named_steps["preprocess"],
+    "8600": rf_models["8600"].named_steps["preprocess"],
+    "8722": rf_models["8722"].named_steps["preprocess"],
+    "8917": rf_models["8917"].named_steps["preprocess"],
+}
+
 # 전처리된 컬럼명 → 원래 변수명
 feature_name_map = {
     "num__molten_temp": "molten_temp",

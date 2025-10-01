@@ -1,5 +1,6 @@
 from shiny import ui, render, reactive
 import pandas as pd
+import numpy as np
 from typing import Dict, Any
 
 from shared import (
@@ -10,12 +11,7 @@ from viz.shap_plots import register_shap_plots
 from modules.service_predict import do_predict
 from modules.service_warnings import shap_based_warning
 
-# from modules.service_adjustment import (
-#     rsg_adjustment_guide,
-#     CUTOFFS,
-#     DATA_RANGES
-# )
-
+from modules.service_adjustment import adjust_variables_to_target, print_adjustment_summary
 
 # ======================
 # 상태 저장용 (세션 전역)
@@ -24,6 +20,7 @@ shap_values_state = reactive.Value(None)
 X_input_state = reactive.Value(None)
 y_test_state = reactive.Value(None)
 pred_state = reactive.Value(None)
+proba_state = reactive.Value(None)
 
 X_input_raw = reactive.Value(None)
 
@@ -191,6 +188,14 @@ def inputs_layout():
             ui.card_header("전체 예측 결과"),
             ui.output_ui("pred_result_card_default"),
             ui.output_ui("pred_result_card"),
+            
+            ui.div(
+                ui.output_ui("adjustment_guide_default"),
+                ui.output_ui("adjustment_guide_result"),
+                class_="mb-3",
+                style="min-width:250px;"
+            ),
+            
             ui.input_action_button("btn_predict", "예측 실행", class_="btn btn-primary"),
             class_="mb-3",
             style="min-height:200px; min-width:250px;"
@@ -308,6 +313,7 @@ def page_input_server(input, output, session):
     def pred_result_card():
         pred, proba = do_predict(input, shap_values_state, X_input_state, X_input_raw, rf_models, rf_explainers)
         pred_state.set(pred)
+        proba_state.set(pred)
 
         if pred == -1:
             return ui.div(
@@ -392,6 +398,80 @@ def page_input_server(input, output, session):
         @reactive.event(input[f"{cid}_close_modal"])
         def close_modal():
             ui.modal_remove()
+            
+            
+    # modules/page_input.py - adjustment_guide 관련 부분만 발췌
+
+    # ✅ 조정 가이드 결과 (수정된 버전)
+    @output
+    @render.ui
+    @reactive.event(input.btn_predict)
+    def adjustment_guide_result():
+        pred = pred_state.get()
+        proba = proba_state.get()
+        
+        # ✅ 올바른 데이터 가져오기
+        shap_values = shap_values_state.get()  # 전처리된 변수명 기준 SHAP 값
+        raw_sample = X_input_raw.get()         # 원본 입력 값 (사용자 입력)
+
+        # PASS일 경우 → 안내 메시지
+        if pred == 0:
+            return ui.div(
+                "✅ 양품으로 판정되어 조정 가이드가 필요하지 않습니다.",
+                class_="p-3 text-center text-white",
+                style="background-color:#198754;border-radius:12px;font-weight:600;"
+            )
+
+        # 모델 없음 또는 데이터 없음
+        if pred == -1 or raw_sample is None or shap_values is None:
+            return ui.div(
+                "⚠️ 조정 가이드를 생성할 수 없습니다.",
+                class_="p-3 text-center text-white",
+                style="background-color:#6c757d;border-radius:12px;font-weight:600;"
+            )
+
+        # ❌ FAIL → 조정 가이드 실행
+        mold_code = raw_sample.get("mold_code", "8412")
+        model = rf_models[mold_code]
+        preprocessor = model.named_steps["preprocess"]
+
+        # ✅ 핵심 수정: 올바른 데이터 전달
+        # raw_sample: 원본 입력값 (사용자가 입력한 그대로)
+        # shap_values: 전처리된 변수명 기준 SHAP 값
+        result = adjust_variables_to_target(
+            raw_sample=raw_sample,        # 원본 입력 데이터
+            shap_values=shap_values,      # SHAP 값 (전처리된 변수명)
+            preprocessor=preprocessor,     # 전처리기
+            model=model.named_steps["model"],  # 모델
+            target_prob=0.30
+        )
+
+        # ✅ 결과를 HTML UI로 표시
+        guide_html = [
+            f"<div><b>초기 확률</b>: {result['initial_prob']:.2%}</div>",
+            f"<div><b>최종 확률</b>: {result['final_prob']:.2%} (목표 {result['target_prob']:.0%})</div>",
+            "<hr/>"
+        ]
+
+        if result["rule_adjustments"]:
+            guide_html.append("<b>🔧 Rule 기반 보정:</b><br/>")
+            for adj in result["rule_adjustments"]:
+                guide_html.append(f"• {adj}<br/>")
+
+        if result["shap_adjustments"]:
+            guide_html.append("<b>🎯 SHAP 기반 최적화:</b><br/>")
+            for adj in result["shap_adjustments"]:
+                guide_html.append(f"• {adj}<br/>")
+
+        if not result["rule_adjustments"] and not result["shap_adjustments"]:
+            guide_html.append("모든 변수가 정상 범위 내에 있어 추가 조정 불필요합니다.")
+
+        color = "#0d6efd" if result["success"] else "#dc3545"
+        return ui.div(
+            ui.HTML("".join(guide_html)),
+            class_="p-3 text-white",
+            style=f"background-color:{color};border-radius:12px;font-weight:600;"
+        )
 
     warn_msg_factory("molten", "g1", "용탕 준비 및 가열")
     warn_msg_factory("slurry", "g2", "반고체 슬러리 제조")
