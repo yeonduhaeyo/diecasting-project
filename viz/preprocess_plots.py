@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
 
+from shared import name_map_kor
+
 def plot_data_types(train_df):
     """데이터 타입별 변수 개수 시각화"""
     fig, ax = plt.subplots(figsize=(8, 5))
@@ -21,7 +23,7 @@ def plot_data_types(train_df):
     return fig
 
 def plot_missing_overview(train_df):
-    """결측치 상위 10개 변수만 시각화 (내림차순 위에서 아래로)"""
+    """결측치 상위 10개 변수만 시각화 (한글 컬럼명, 내림차순 위에서 아래로)"""
     fig, ax = plt.subplots(figsize=(8, 5))
     
     # 결측치 개수 계산
@@ -32,9 +34,12 @@ def plot_missing_overview(train_df):
         # 순서 뒤집기 (큰 값이 위로 오게)
         missing = missing[::-1]
         
+        # ✅ 한글 이름 매핑 적용
+        labels_kor = [name_map_kor.get(col, col) for col in missing.index]
+        
         ax.barh(range(len(missing)), missing.values, color='coral')
         ax.set_yticks(range(len(missing)))
-        ax.set_yticklabels(missing.index)
+        ax.set_yticklabels(labels_kor, fontsize=10)
         ax.set_xlabel('결측치 개수')
         ax.set_title('결측치 상위 10개 변수')
         ax.grid(axis='x', alpha=0.3)
@@ -45,7 +50,6 @@ def plot_missing_overview(train_df):
     
     plt.tight_layout()
     return fig
-
 
 
 def plot_target_distribution(train_df, target_col='passorfail'):

@@ -2,7 +2,7 @@ shiny
 faicons
 pandas
 numpy
-matplotlib
+matplotlib>=3.5.0
 seaborn
 plotly
 scikit-learn
