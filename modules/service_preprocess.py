@@ -172,7 +172,7 @@ outlier_table_html = ui.HTML("""
     </thead>
     <tbody>
         <tr><td>production_CycleTime</td><td>0</td><td>facility_CycleTime 값으로 대체</td><td>두 변수 간 패턴 유사</td></tr>
-        <tr><td>molten_temp</td><td>0</td><td>앞뒤 값 보간</td><td>산발적 발생</td></tr>
+        <tr><td>molten_temp</td><td>100 이하</td><td>앞뒤 값 보간</td><td>산발적 발생</td></tr>
         <tr><td>sleeve_temperature</td><td>1449</td><td>앞뒤 값 보간</td><td>금형 8917 특정 구간 발생</td></tr>
         <tr><td>Coolant_temperature</td><td>1449</td><td>다음 값(35)으로 대체</td><td>연속 9개 값 발생</td></tr>
         <tr><td>physical_strength</td><td>0</td><td>금형 8412 평균값 대체</td><td>입력 오류 판단</td></tr>
