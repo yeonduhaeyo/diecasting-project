@@ -62,7 +62,13 @@ def page_preprocess_ui():
                     ui.p("센서 오류 의심 값 및 다수 결측 행 제거"),
                     tbl.removed_rows_table,
                     ui.img(src="remove_img.png",
-                           style="width:100%; max-width:1000px; margin:10px auto; display:block;")
+                           style="width:100%; max-width:1000px; margin:10px auto; display:block;"),
+                    
+                    ui.hr(),
+                    
+                    ui.p("행 제거 전 후 행 갯수 비교"),
+                    ui.p("👉 전 : 73612 / 후 : 73594")
+                    
                 ),
                 ui.card(
                     ui.card_header("🔄 데이터 타입 변경"),

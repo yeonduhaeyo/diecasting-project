@@ -56,25 +56,25 @@ df.info()
 # 이상치 제거 데이터
 df2 = pd.read_csv(data_dir / "outlier_remove_data2.csv")
 
-# Model Load
-model = joblib.load(models_dir / "final_model.joblib")
+# # Model Load
+# model = joblib.load(models_dir / "final_model.joblib")
 
-# 각 모델 개별 로드
-models = {
-    "8412": joblib.load(models_dir / "XGBoost" /"xgb_smote20_mold_8412.pkl"),
-    "8573": joblib.load(models_dir / "XGBoost" /"xgb_smote20_mold_8573.pkl"),
-    "8600": joblib.load(models_dir / "XGBoost"/ "xgb_smote20_mold_8600.pkl"),
-    "8722": joblib.load(models_dir / "XGBoost"/ "xgb_smote20_mold_8722.pkl"),
-    "8917": joblib.load(models_dir / "XGBoost"/ "xgb_smote20_mold_8917.pkl"),
-}
+# # 각 모델 개별 로드
+# models = {
+#     "8412": joblib.load(models_dir / "XGBoost" /"xgb_smote20_mold_8412.pkl"),
+#     "8573": joblib.load(models_dir / "XGBoost" /"xgb_smote20_mold_8573.pkl"),
+#     "8600": joblib.load(models_dir / "XGBoost"/ "xgb_smote20_mold_8600.pkl"),
+#     "8722": joblib.load(models_dir / "XGBoost"/ "xgb_smote20_mold_8722.pkl"),
+#     "8917": joblib.load(models_dir / "XGBoost"/ "xgb_smote20_mold_8917.pkl"),
+# }
 
-explainers = {
-    "8412": shap.TreeExplainer(models["8412"].named_steps["model"]),
-    "8573": shap.TreeExplainer(models["8573"].named_steps["model"]),
-    "8600": shap.TreeExplainer(models["8600"].named_steps["model"]),
-    "8722": shap.TreeExplainer(models["8722"].named_steps["model"]),
-    "8917": shap.TreeExplainer(models["8917"].named_steps["model"]),
-}
+# explainers = {
+#     "8412": shap.TreeExplainer(models["8412"].named_steps["model"]),
+#     "8573": shap.TreeExplainer(models["8573"].named_steps["model"]),
+#     "8600": shap.TreeExplainer(models["8600"].named_steps["model"]),
+#     "8722": shap.TreeExplainer(models["8722"].named_steps["model"]),
+#     "8917": shap.TreeExplainer(models["8917"].named_steps["model"]),
+# }
 
 rf_models = {
     "8412": joblib.load(models_dir / "RandomForest" /"rf_mold_8412.pkl"),
