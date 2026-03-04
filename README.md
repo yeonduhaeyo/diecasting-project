@@ -3,7 +3,8 @@
 ## 🏭 프로젝트 제목
 
 > **다이캐스팅 공정 데이터 기반 불량 예측·모니터링**
-> Demo: [https://yeonduhaeyo.shinyapps.io/diecasting-monitoring/](https://yeonduhaeyo.shinyapps.io/diecasting-dashboard/)
+> 
+Demo: [https://yeonduhaeyo.shinyapps.io/diecasting-monitoring/](https://yeonduhaeyo.shinyapps.io/diecasting-dashboard/)
 
 ---
 
